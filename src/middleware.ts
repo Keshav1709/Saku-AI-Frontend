@@ -17,7 +17,7 @@ export function middleware(request: NextRequest) {
   }
   const cookie = request.cookies.get("saku_auth");
   // Prefer cookie if present (future-proof), otherwise allow client-side localStorage guard
-  if (!cookie && (pathname.startsWith("/chat") || pathname.startsWith("/connect") || pathname.startsWith("/dashboard") || pathname.startsWith("/onboarding"))) {
+  if (!cookie && (pathname.startsWith("/chat") || pathname.startsWith("/connect") || pathname.startsWith("/dashboard") || pathname.startsWith("/onboarding") || pathname.startsWith("/settings") || pathname.startsWith("/upload") || pathname.startsWith("/docs"))) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

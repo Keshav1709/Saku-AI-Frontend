@@ -33,6 +33,9 @@ export function TopNav() {
         <Link href="/docs" className={linkCls("/docs")}>
           Documents
         </Link>
+        <Link href="/settings" className={linkCls("/settings")}>
+          Settings
+        </Link>
         <button className="ml-4 underline" onClick={logout}>
           Logout
         </button>
