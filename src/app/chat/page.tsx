@@ -48,7 +48,7 @@ export default function ChatPage() {
           // persist session index
           const sessions = JSON.parse(localStorage.getItem("saku_sessions") || "[]");
           const title = userMsg.content.slice(0, 40) || "Conversation";
-          const exists = sessions.find((s: any) => s.id === sessionId);
+          const exists = sessions.find((s: { id: string }) => s.id === sessionId);
           if (!exists) {
             sessions.unshift({ id: sessionId, title, createdAt: new Date().toISOString() });
             localStorage.setItem("saku_sessions", JSON.stringify(sessions.slice(0, 30)));

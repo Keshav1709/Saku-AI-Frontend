@@ -42,7 +42,6 @@ export async function GET(req: Request) {
       for (const t of tokens) {
         send({ type: "token", value: t });
         // small delay to simulate streaming
-        // eslint-disable-next-line no-await-in-loop
         await sleep(25);
       }
 
