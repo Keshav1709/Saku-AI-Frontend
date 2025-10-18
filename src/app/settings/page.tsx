@@ -31,14 +31,11 @@ export default function SettingsPage() {
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   
-  const [integrations, setIntegrations] = useState<Integration[]>([
-    { id: "google-calendar", name: "Google Calendar", description: "john@acme.com", icon: "📅", connected: true },
-    { id: "outlook-calendar", name: "Outlook Calendar", description: "Microsoft 365 & Exchange", icon: "📆", connected: false },
-    { id: "slack", name: "Slack", description: "acme.slack.com", icon: "💬", connected: true },
-    { id: "discord", name: "Discord", description: "Voice and text chat", icon: "🎮", connected: false },
-    { id: "notion", name: "Notion", description: "Workspace: Acme Team", icon: "📝", connected: true },
-    { id: "google-drive", name: "Google Drive", description: "googledrive.com", icon: "📁", connected: true },
-  ]);
+  const [integrations, setIntegrations] = useState<Integration[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [connectionStatus, setConnectionStatus] = useState<{[key: string]: string}>({});
+  const [fetchedData, setFetchedData] = useState<{[key: string]: any}>({});
 
   const [monitoringSettings, setMonitoringSettings] = useState({
     timeTracking: true,
@@ -56,6 +53,34 @@ export default function SettingsPage() {
   useEffect(() => {
     const token = localStorage.getItem("saku_auth");
     if (!token) router.replace("/login");
+
+    // Check for OAuth callback parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const error = urlParams.get('error');
+    const connected = urlParams.get('connected');
+    const state = urlParams.get('state');
+    
+    if (error) {
+      console.log('DEBUG: OAuth error detected:', error);
+      setDebugInfo({
+        type: 'error',
+        message: `OAuth Error: ${error}`,
+        state: state,
+        timestamp: new Date().toISOString()
+      });
+      // Clear URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (connected) {
+      console.log('DEBUG: OAuth success detected:', connected);
+      setDebugInfo({
+        type: 'success',
+        message: `Successfully connected to ${connected}`,
+        state: state,
+        timestamp: new Date().toISOString()
+      });
+      // Clear URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
 
     // Load saved profile data
     const saved = localStorage.getItem("saku_profile");
@@ -89,7 +114,114 @@ export default function SettingsPage() {
         setNotificationSettings(data);
       } catch {}
     }
+
+    // Load integrations
+    loadIntegrations();
   }, [router]);
+
+  const loadIntegrations = async () => {
+    try {
+      console.log('DEBUG: Loading integrations...');
+      const response = await fetch('/api/connectors');
+      console.log('DEBUG: Response status:', response.status);
+      const data = await response.json();
+      console.log('DEBUG: Response data:', data);
+      if (data.connectors) {
+        const formattedIntegrations = data.connectors.map((connector: any) => ({
+          id: connector.key,
+          name: connector.name,
+          description: getIntegrationDescription(connector.key),
+          icon: getIntegrationIcon(connector.key),
+          connected: connector.connected
+        }));
+        console.log('DEBUG: Formatted integrations:', formattedIntegrations);
+        setIntegrations(formattedIntegrations);
+      }
+    } catch (error) {
+      console.error('Failed to load integrations:', error);
+    }
+  };
+
+  const getIntegrationDescription = (key: string) => {
+    const descriptions: { [key: string]: string } = {
+      'gmail': 'Access your Gmail messages and data',
+      'google-drive': 'Access your Google Drive files and folders',
+      'google-calendar': 'Access your Google Calendar events',
+      'slack': 'Connect to your Slack workspace',
+      'notion': 'Access your Notion workspace',
+      'discord': 'Connect to Discord servers'
+    };
+    return descriptions[key] || 'Integration description';
+  };
+
+  const getIntegrationIcon = (key: string) => {
+    const icons: { [key: string]: string } = {
+      'gmail': '📧',
+      'google-drive': '📁',
+      'google-calendar': '📅',
+      'slack': '💬',
+      'notion': '📝',
+      'discord': '🎮'
+    };
+    return icons[key] || '🔗';
+  };
+
+  const testConnection = async (serviceType: string) => {
+    console.log('DEBUG: Testing connection for:', serviceType);
+    setConnectionStatus(prev => ({ ...prev, [serviceType]: 'testing' }));
+    
+    try {
+      const response = await fetch(`/api/integrations?service=${serviceType}&type=${serviceType === 'gmail' ? 'messages' : serviceType === 'drive' ? 'files' : 'events'}&maxResults=5`);
+      const data = await response.json();
+      
+      console.log('DEBUG: Test response:', response.status, data);
+      
+      if (response.ok) {
+        const itemCount = serviceType === 'gmail' ? data.messages?.length || 0 :
+                         serviceType === 'drive' ? data.files?.length || 0 :
+                         serviceType === 'calendar' ? data.events?.length || 0 : 0;
+        
+        if (itemCount > 0) {
+          setConnectionStatus(prev => ({ 
+            ...prev, 
+            [serviceType]: `connected (${itemCount} items fetched)` 
+          }));
+          
+          setFetchedData(prev => ({ ...prev, [serviceType]: data }));
+          
+          setDebugInfo({
+            type: 'success',
+            message: `Successfully fetched ${itemCount} ${serviceType} items`,
+            data: data,
+            timestamp: new Date().toISOString()
+          });
+        } else {
+          setConnectionStatus(prev => ({ ...prev, [serviceType]: 'no_data' }));
+          setDebugInfo({
+            type: 'warning',
+            message: `Connected to ${serviceType} but no data found. Check if you have permissions or data in your account.`,
+            data: data,
+            timestamp: new Date().toISOString()
+          });
+        }
+      } else {
+        setConnectionStatus(prev => ({ ...prev, [serviceType]: 'error' }));
+        setDebugInfo({
+          type: 'error',
+          message: `Failed to fetch ${serviceType} data: ${data.error || 'Unknown error'}`,
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      console.error('Connection test failed:', error);
+      setConnectionStatus(prev => ({ ...prev, [serviceType]: 'error' }));
+      setDebugInfo({
+        type: 'error',
+        message: `Connection test failed: ${error}`,
+        timestamp: new Date().toISOString()
+      });
+    }
+  };
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -132,10 +264,73 @@ export default function SettingsPage() {
     }
   };
 
-  const toggleIntegration = (id: string) => {
-    setIntegrations(prev => prev.map(int => 
-      int.id === id ? { ...int, connected: !int.connected } : int
-    ));
+  const toggleIntegration = async (id: string) => {
+    console.log('DEBUG: Toggle integration called for:', id);
+    setLoading(true);
+    try {
+      const integration = integrations.find(int => int.id === id);
+      console.log('DEBUG: Found integration:', integration);
+      if (!integration) return;
+
+      if (integration.connected) {
+        console.log('DEBUG: Disconnecting integration...');
+        // Disconnect integration
+        const response = await fetch('/api/integrations', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'disconnect',
+            service_type: id.replace('google-', '')
+          }),
+        });
+
+        if (response.ok) {
+          setIntegrations(prev => prev.map(int => 
+            int.id === id ? { ...int, connected: false } : int
+          ));
+        }
+      } else {
+        console.log('DEBUG: Connecting integration...');
+        // Connect integration - handle Google OAuth
+        if (['gmail', 'drive', 'calendar'].includes(id)) {
+          console.log('DEBUG: Google service detected, getting auth URL...');
+          const authResponse = await fetch(`/api/connectors/auth-url?key=${id}`);
+          console.log('DEBUG: Auth response status:', authResponse.status);
+          const authData = await authResponse.json();
+          console.log('DEBUG: Auth data:', authData);
+          
+          if (authData.url) {
+            console.log('DEBUG: Redirecting to:', authData.url);
+            // Redirect to Google OAuth
+            window.location.href = authData.url;
+          } else {
+            console.log('DEBUG: No auth URL received');
+          }
+        } else {
+          // For non-Google services, just toggle the state
+          const response = await fetch('/api/connectors', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ key: id }),
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            setIntegrations(prev => prev.map(int => 
+              int.id === id ? { ...int, connected: result.connector?.connected || false } : int
+            ));
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to toggle integration:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const toggleMonitoring = (setting: keyof typeof monitoringSettings) => {
@@ -431,13 +626,155 @@ export default function SettingsPage() {
                   <p className="text-sm text-neutral-700">Connect and manage integrations with your favorite apps and services.</p>
                 </div>
 
-                {/* Calendar Section */}
+                {/* Debug Widget */}
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
+                  <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                    🔧 Debug Information
+                    <button 
+                      onClick={() => setDebugInfo(null)}
+                      className="text-sm text-gray-500 hover:text-gray-700"
+                    >
+                      Clear
+                    </button>
+                  </h3>
+                  
+                  {debugInfo && (
+                    <div className={`p-3 rounded mb-3 ${
+                      debugInfo.type === 'error' ? 'bg-red-50 border border-red-200' :
+                      debugInfo.type === 'success' ? 'bg-green-50 border border-green-200' :
+                      'bg-blue-50 border border-blue-200'
+                    }`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`w-2 h-2 rounded-full ${
+                          debugInfo.type === 'error' ? 'bg-red-500' :
+                          debugInfo.type === 'success' ? 'bg-green-500' :
+                          'bg-blue-500'
+                        }`}></span>
+                        <span className="font-medium">{debugInfo.message}</span>
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        <div>Time: {new Date(debugInfo.timestamp).toLocaleString()}</div>
+                        {debugInfo.state && <div>State: {debugInfo.state}</div>}
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="space-y-2">
+                    <h4 className="font-medium">Connection Status:</h4>
+                    {Object.keys(connectionStatus).length === 0 ? (
+                      <p className="text-sm text-gray-500">No connection tests performed yet</p>
+                    ) : (
+                      Object.entries(connectionStatus).map(([service, status]) => (
+                        <div key={service} className="flex items-center justify-between text-sm">
+                          <span className="capitalize">{service}:</span>
+                          <span className={`px-2 py-1 rounded text-xs ${
+                            status === 'testing' ? 'bg-yellow-100 text-yellow-700' :
+                            status.includes('connected') ? 'bg-green-100 text-green-700' :
+                            status === 'no_data' ? 'bg-orange-100 text-orange-700' :
+                            status === 'error' ? 'bg-red-100 text-red-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                            {status}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  
+                  <div className="mt-3 flex gap-2">
+                    <button 
+                      onClick={() => testConnection('gmail')}
+                      className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                    >
+                      Test Gmail
+                    </button>
+                    <button 
+                      onClick={() => testConnection('drive')}
+                      className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                    >
+                      Test Drive
+                    </button>
+                    <button 
+                      onClick={() => testConnection('calendar')}
+                      className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                    >
+                      Test Calendar
+                    </button>
+                  </div>
+                </div>
+
+                {/* Data Display Section */}
+                {Object.keys(fetchedData).length > 0 && (
+                  <div className="mb-6 p-4 bg-white rounded-lg border">
+                    <h3 className="text-lg font-semibold mb-3">📊 Fetched Data Preview</h3>
+                    
+                    {fetchedData.gmail && (
+                      <div className="mb-4">
+                        <h4 className="font-medium mb-2 flex items-center gap-2">
+                          📧 Gmail Messages ({fetchedData.gmail.messages?.length || 0})
+                        </h4>
+                        <div className="space-y-2 max-h-40 overflow-y-auto">
+                          {fetchedData.gmail.messages?.slice(0, 3).map((msg: any, idx: number) => (
+                            <div key={idx} className="p-2 bg-gray-50 rounded text-sm">
+                              <div className="font-medium">{msg.subject || 'No Subject'}</div>
+                              <div className="text-gray-600">From: {msg.from}</div>
+                              <div className="text-gray-500 text-xs">{msg.date}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {fetchedData.drive && (
+                      <div className="mb-4">
+                        <h4 className="font-medium mb-2 flex items-center gap-2">
+                          📁 Drive Files ({fetchedData.drive.files?.length || 0})
+                        </h4>
+                        <div className="space-y-2 max-h-40 overflow-y-auto">
+                          {fetchedData.drive.files?.slice(0, 3).map((file: any, idx: number) => (
+                            <div key={idx} className="p-2 bg-gray-50 rounded text-sm">
+                              <div className="font-medium">{file.name}</div>
+                              <div className="text-gray-600">Type: {file.mimeType}</div>
+                              <div className="text-gray-500 text-xs">Modified: {file.modifiedTime}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {fetchedData.calendar && (
+                      <div className="mb-4">
+                        <h4 className="font-medium mb-2 flex items-center gap-2">
+                          📅 Calendar Events ({fetchedData.calendar.events?.length || 0})
+                        </h4>
+                        <div className="space-y-2 max-h-40 overflow-y-auto">
+                          {fetchedData.calendar.events?.slice(0, 3).map((event: any, idx: number) => (
+                            <div key={idx} className="p-2 bg-gray-50 rounded text-sm">
+                              <div className="font-medium">{event.summary || 'No Title'}</div>
+                              <div className="text-gray-600">
+                                {event.start?.dateTime ? 
+                                  new Date(event.start.dateTime).toLocaleString() : 
+                                  event.start?.date || 'No date'
+                                }
+                              </div>
+                              <div className="text-gray-500 text-xs">
+                                {event.location || 'No location'}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Google Services Section */}
                 <div className="mb-8">
-                  <h3 className="text-base font-semibold mb-1">Calendar</h3>
-                  <p className="text-sm text-neutral-700 mb-4">Connect your calendar apps to automatically sync meetings and events.</p>
+                  <h3 className="text-base font-semibold mb-1">Google Services</h3>
+                  <p className="text-sm text-neutral-700 mb-4">Connect to Google services to access your Gmail, Drive, and Calendar data.</p>
                   
                   <div className="space-y-3">
-                    {integrations.filter(int => int.id.includes("calendar")).map(integration => (
+                    {integrations.filter(int => ['gmail', 'drive', 'calendar'].includes(int.id)).map(integration => (
                       <div key={integration.id} className="flex items-center justify-between p-4 border border-neutral-200 rounded-lg hover:border-neutral-300 transition-colors">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center text-xl">
@@ -459,20 +796,22 @@ export default function SettingsPage() {
                         {integration.connected ? (
                           <button
                             onClick={() => toggleIntegration(integration.id)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-neutral-700 hover:text-black transition-colors"
+                            disabled={loading}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-neutral-700 hover:text-black transition-colors disabled:opacity-50"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
-                            Manage
+                            {loading ? 'Disconnecting...' : 'Disconnect'}
                           </button>
                         ) : (
                           <button
                             onClick={() => toggleIntegration(integration.id)}
-                            className="px-4 py-1.5 bg-black text-white text-sm rounded hover:bg-black/90 transition-colors"
+                            disabled={loading}
+                            className="px-4 py-1.5 bg-black text-white text-sm rounded hover:bg-black/90 transition-colors disabled:opacity-50"
                           >
-                            + Connect
+                            {loading ? 'Connecting...' : '+ Connect'}
                           </button>
                         )}
                       </div>
@@ -508,20 +847,22 @@ export default function SettingsPage() {
                         {integration.connected ? (
                           <button
                             onClick={() => toggleIntegration(integration.id)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-neutral-700 hover:text-black transition-colors"
+                            disabled={loading}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-neutral-700 hover:text-black transition-colors disabled:opacity-50"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
-                            Manage
+                            {loading ? 'Disconnecting...' : 'Disconnect'}
                           </button>
                         ) : (
                           <button
                             onClick={() => toggleIntegration(integration.id)}
-                            className="px-4 py-1.5 bg-black text-white text-sm rounded hover:bg-black/90 transition-colors"
+                            disabled={loading}
+                            className="px-4 py-1.5 bg-black text-white text-sm rounded hover:bg-black/90 transition-colors disabled:opacity-50"
                           >
-                            + Connect
+                            {loading ? 'Connecting...' : '+ Connect'}
                           </button>
                         )}
                       </div>
@@ -557,20 +898,22 @@ export default function SettingsPage() {
                         {integration.connected ? (
                           <button
                             onClick={() => toggleIntegration(integration.id)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-neutral-700 hover:text-black transition-colors"
+                            disabled={loading}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-neutral-700 hover:text-black transition-colors disabled:opacity-50"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
-                            Manage
+                            {loading ? 'Disconnecting...' : 'Disconnect'}
                           </button>
                         ) : (
                           <button
                             onClick={() => toggleIntegration(integration.id)}
-                            className="px-4 py-1.5 bg-black text-white text-sm rounded hover:bg-black/90 transition-colors"
+                            disabled={loading}
+                            className="px-4 py-1.5 bg-black text-white text-sm rounded hover:bg-black/90 transition-colors disabled:opacity-50"
                           >
-                            + Connect
+                            {loading ? 'Connecting...' : '+ Connect'}
                           </button>
                         )}
                       </div>
@@ -606,20 +949,22 @@ export default function SettingsPage() {
                         {integration.connected ? (
                           <button
                             onClick={() => toggleIntegration(integration.id)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-neutral-700 hover:text-black transition-colors"
+                            disabled={loading}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-neutral-700 hover:text-black transition-colors disabled:opacity-50"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
-                            Manage
+                            {loading ? 'Disconnecting...' : 'Disconnect'}
                           </button>
                         ) : (
                           <button
                             onClick={() => toggleIntegration(integration.id)}
-                            className="px-4 py-1.5 bg-black text-white text-sm rounded hover:bg-black/90 transition-colors"
+                            disabled={loading}
+                            className="px-4 py-1.5 bg-black text-white text-sm rounded hover:bg-black/90 transition-colors disabled:opacity-50"
                           >
-                            + Connect
+                            {loading ? 'Connecting...' : '+ Connect'}
                           </button>
                         )}
                       </div>
