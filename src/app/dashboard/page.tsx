@@ -5,18 +5,12 @@ export default function Dashboard() {
         <aside className="bg-white rounded-2xl border p-3">
           <div className="font-semibold mb-4">SakuAI</div>
           <nav className="space-y-1 text-sm">
-            {[
-              "Home",
-              "New Chat",
-              "WorkFlows",
-              "Meetings",
-              "Insights",
-              "Settings",
-            ].map((item) => (
-              <a key={item} href="#" className="block px-3 py-2 rounded hover:bg-black/5">
-                {item}
-              </a>
-            ))}
+            <a href="#" className="block px-3 py-2 rounded hover:bg-black/5">Home</a>
+            <a href="#" className="block px-3 py-2 rounded hover:bg-black/5">New Chat</a>
+            <a href="#" className="block px-3 py-2 rounded hover:bg-black/5">WorkFlows</a>
+            <a href="#" className="block px-3 py-2 rounded hover:bg-black/5">Meetings</a>
+            <a href="#" className="block px-3 py-2 rounded hover:bg-black/5">Insights</a>
+            <a href="/settings" className="block px-3 py-2 rounded hover:bg-black/5">Settings</a>
           </nav>
           <div className="mt-6 text-xs text-neutral-500">Chats</div>
           <div className="text-xs text-neutral-500">…</div>

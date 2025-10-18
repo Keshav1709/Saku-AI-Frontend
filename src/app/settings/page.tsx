@@ -6,6 +6,14 @@ import Image from "next/image";
 
 type SettingsTab = "profile" | "integrations" | "monitoring" | "tags" | "billing" | "policies" | "advanced";
 
+type Integration = {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  connected: boolean;
+};
+
 export default function SettingsPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
@@ -21,6 +29,15 @@ export default function SettingsPage() {
   });
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  
+  const [integrations, setIntegrations] = useState<Integration[]>([
+    { id: "google-calendar", name: "Google Calendar", description: "john@acme.com", icon: "📅", connected: true },
+    { id: "outlook-calendar", name: "Outlook Calendar", description: "Microsoft 365 & Exchange", icon: "📆", connected: false },
+    { id: "slack", name: "Slack", description: "acme.slack.com", icon: "💬", connected: true },
+    { id: "discord", name: "Discord", description: "Voice and text chat", icon: "🎮", connected: false },
+    { id: "notion", name: "Notion", description: "Workspace: Acme Team", icon: "📝", connected: true },
+    { id: "google-drive", name: "Google Drive", description: "googledrive.com", icon: "📁", connected: true },
+  ]);
 
   useEffect(() => {
     const token = localStorage.getItem("saku_auth");
@@ -81,6 +98,12 @@ export default function SettingsPage() {
     if (saved) {
       setProfileData(JSON.parse(saved));
     }
+  };
+
+  const toggleIntegration = (id: string) => {
+    setIntegrations(prev => prev.map(int => 
+      int.id === id ? { ...int, connected: !int.connected } : int
+    ));
   };
 
   const navItems = [
@@ -352,8 +375,214 @@ export default function SettingsPage() {
               </div>
             )}
 
+            {/* Integrations Tab */}
+            {activeTab === "integrations" && (
+              <div>
+                <div className="mb-8">
+                  <h2 className="text-2xl font-semibold mb-2">Integrations</h2>
+                  <p className="text-sm text-neutral-600">Connect and manage integrations with your favorite apps and services.</p>
+                </div>
+
+                {/* Calendar Section */}
+                <div className="mb-8">
+                  <h3 className="text-base font-semibold mb-1">Calendar</h3>
+                  <p className="text-sm text-neutral-600 mb-4">Connect your calendar apps to automatically sync meetings and events.</p>
+                  
+                  <div className="space-y-3">
+                    {integrations.filter(int => int.id.includes("calendar")).map(integration => (
+                      <div key={integration.id} className="flex items-center justify-between p-4 border border-neutral-200 rounded-lg hover:border-neutral-300 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center text-xl">
+                            {integration.icon}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-medium text-sm">{integration.name}</h4>
+                              {integration.connected && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 text-xs rounded-full">
+                                  <span className="w-1.5 h-1.5 bg-green-600 rounded-full"></span>
+                                  Connected
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-neutral-600">{integration.description}</p>
+                          </div>
+                        </div>
+                        {integration.connected ? (
+                          <button
+                            onClick={() => toggleIntegration(integration.id)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-neutral-700 hover:text-black transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            Manage
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => toggleIntegration(integration.id)}
+                            className="px-4 py-1.5 bg-black text-white text-sm rounded hover:bg-black/90 transition-colors"
+                          >
+                            + Connect
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Communication Section */}
+                <div className="mb-8">
+                  <h3 className="text-base font-semibold mb-1">Communication</h3>
+                  <p className="text-sm text-neutral-600 mb-4">Connect messaging and video conferencing tools.</p>
+                  
+                  <div className="space-y-3">
+                    {integrations.filter(int => ["slack", "discord"].includes(int.id)).map(integration => (
+                      <div key={integration.id} className="flex items-center justify-between p-4 border border-neutral-200 rounded-lg hover:border-neutral-300 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center text-xl">
+                            {integration.icon}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-medium text-sm">{integration.name}</h4>
+                              {integration.connected && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 text-xs rounded-full">
+                                  <span className="w-1.5 h-1.5 bg-green-600 rounded-full"></span>
+                                  Connected
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-neutral-600">{integration.description}</p>
+                          </div>
+                        </div>
+                        {integration.connected ? (
+                          <button
+                            onClick={() => toggleIntegration(integration.id)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-neutral-700 hover:text-black transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            Manage
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => toggleIntegration(integration.id)}
+                            className="px-4 py-1.5 bg-black text-white text-sm rounded hover:bg-black/90 transition-colors"
+                          >
+                            + Connect
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Productivity Section */}
+                <div className="mb-8">
+                  <h3 className="text-base font-semibold mb-1">Productivity</h3>
+                  <p className="text-sm text-neutral-600 mb-4">Connect project management and productivity tools.</p>
+                  
+                  <div className="space-y-3">
+                    {integrations.filter(int => int.id === "notion").map(integration => (
+                      <div key={integration.id} className="flex items-center justify-between p-4 border border-neutral-200 rounded-lg hover:border-neutral-300 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center text-xl">
+                            {integration.icon}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-medium text-sm">{integration.name}</h4>
+                              {integration.connected && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 text-xs rounded-full">
+                                  <span className="w-1.5 h-1.5 bg-green-600 rounded-full"></span>
+                                  Connected
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-neutral-600">{integration.description}</p>
+                          </div>
+                        </div>
+                        {integration.connected ? (
+                          <button
+                            onClick={() => toggleIntegration(integration.id)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-neutral-700 hover:text-black transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            Manage
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => toggleIntegration(integration.id)}
+                            className="px-4 py-1.5 bg-black text-white text-sm rounded hover:bg-black/90 transition-colors"
+                          >
+                            + Connect
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Storage Section */}
+                <div className="mb-8">
+                  <h3 className="text-base font-semibold mb-1">Storage</h3>
+                  <p className="text-sm text-neutral-600 mb-4">Connect drives and storage tools</p>
+                  
+                  <div className="space-y-3">
+                    {integrations.filter(int => int.id === "google-drive").map(integration => (
+                      <div key={integration.id} className="flex items-center justify-between p-4 border border-neutral-200 rounded-lg hover:border-neutral-300 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center text-xl">
+                            {integration.icon}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-medium text-sm">{integration.name}</h4>
+                              {integration.connected && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 text-xs rounded-full">
+                                  <span className="w-1.5 h-1.5 bg-green-600 rounded-full"></span>
+                                  Connected
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-neutral-600">{integration.description}</p>
+                          </div>
+                        </div>
+                        {integration.connected ? (
+                          <button
+                            onClick={() => toggleIntegration(integration.id)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-neutral-700 hover:text-black transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            Manage
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => toggleIntegration(integration.id)}
+                            className="px-4 py-1.5 bg-black text-white text-sm rounded hover:bg-black/90 transition-colors"
+                          >
+                            + Connect
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Other tabs content placeholders */}
-            {activeTab !== "profile" && (
+            {activeTab !== "profile" && activeTab !== "integrations" && (
               <div className="text-center py-12">
                 <h2 className="text-xl font-semibold mb-2 capitalize">{activeTab}</h2>
                 <p className="text-neutral-600">This section is coming soon.</p>
