@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { MainSidebar } from "@/components/MainSidebar";
 
 type Doc = { id: string; title: string; createdAt: string };
 
@@ -27,23 +28,28 @@ export default function DocsPage() {
   }, []);
 
   return (
-    <main className="p-6">
-      <h1 className="text-xl font-semibold mb-4">Documents</h1>
-      {loading ? (
-        <p className="opacity-70">Loading…</p>
-      ) : docs.length === 0 ? (
-        <p className="opacity-70">No documents yet.</p>
-      ) : (
-        <ul className="space-y-2">
-          {docs.map((d) => (
-            <li key={d.id} className="border rounded p-3">
-              <div className="font-medium">{d.title}</div>
-              <div className="text-xs opacity-70">{new Date(d.createdAt).toLocaleString()}</div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </main>
+    <div className="min-h-screen bg-[#f7f8f9] flex">
+      <MainSidebar />
+      <main className="flex-1 p-6">
+        <div className="bg-white rounded-2xl border p-6">
+          <h1 className="text-xl font-semibold mb-4">Documents</h1>
+          {loading ? (
+            <p className="opacity-70">Loading…</p>
+          ) : docs.length === 0 ? (
+            <p className="opacity-70">No documents yet.</p>
+          ) : (
+            <ul className="space-y-2">
+              {docs.map((d) => (
+                <li key={d.id} className="border rounded p-3">
+                  <div className="font-medium">{d.title}</div>
+                  <div className="text-xs opacity-70">{new Date(d.createdAt).toLocaleString()}</div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </main>
+    </div>
   );
 }
 

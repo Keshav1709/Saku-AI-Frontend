@@ -27,6 +27,9 @@ export function TopNav() {
         <Link href="/chat" className={linkCls("/chat")}>
           Chat
         </Link>
+        <Link href="/workflows" className={linkCls("/workflows")}>
+          Workflows
+        </Link>
         <Link href="/upload" className={linkCls("/upload")}>
           Upload
         </Link>
