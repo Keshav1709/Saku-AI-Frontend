@@ -34,7 +34,7 @@ Preferred communication style: Simple, everyday language.
 **Mechanism**: Cookie-based authentication with localStorage fallback
 **Implementation**: 
 - Middleware-based route protection at `/src/middleware.ts`
-- Protected routes: `/chat`, `/connect`, `/dashboard`, `/onboarding`
+- Protected routes: `/chat`, `/connect`, `/dashboard`, `/onboarding`, `/settings`, `/upload`, `/docs`
 - Public routes: `/login`, `/signup`, `/`, static assets
 - Authentication cookie: `saku_auth`
 
@@ -49,6 +49,8 @@ Preferred communication style: Simple, everyday language.
 **Data Persistence**:
 - Conversation history stored in `saku_sessions` localStorage key
 - Auth token in `saku_auth` localStorage key
+- User profile data stored in `saku_profile` localStorage key
+- Profile photo stored in `saku_profile_photo` localStorage key (base64 encoded)
 - Client-side only (no database integration in frontend)
 
 ### API Architecture
@@ -99,6 +101,7 @@ Preferred communication style: Simple, everyday language.
 - `/dashboard` - Overview with quick actions
 - `/docs` - Document library viewer
 - `/upload` - File upload interface
+- `/settings` - Account settings with multiple sub-pages (Profile & Account, Integrations, Monitoring, Tags, Payment & Billing, Policies, Advanced)
 
 **Layout Strategy**: Shared `TopNav` component provides consistent navigation across protected routes. `Sidebar` component in chat page manages conversation switching.
 
@@ -107,8 +110,46 @@ Preferred communication style: Simple, everyday language.
 **Rationale**: Most components require interactivity (state, effects, event handlers), necessitating client-side rendering. Server components could be introduced for static layouts in future optimization.
 
 **Shared Components**:
-- `TopNav` - Global navigation with active route highlighting and logout
+- `TopNav` - Global navigation with active route highlighting, settings link, and logout
 - `Sidebar` - Conversation list with localStorage persistence
+
+### Settings Page Architecture
+**Location**: `/src/app/settings/page.tsx`
+**Pattern**: Tabbed interface with sub-navigation sidebar
+
+**Sub-Pages**:
+1. **Profile & Account** (Implemented) - User profile management with:
+   - Profile photo upload/change/remove with base64 encoding
+   - Personal information fields (First Name, Last Name, Job Title, Role, Department)
+   - Email configuration (Primary Email)
+   - Preferences (Language dropdown, Preference Email)
+   - Auto-save functionality with localStorage persistence
+   - Manual Save Changes and Cancel buttons
+   
+2. **Integrations** (Placeholder) - Third-party app connections
+3. **Monitoring** (Placeholder) - Activity and usage tracking
+4. **Tags** (Placeholder) - Custom tag management
+5. **Payment & Billing** (Placeholder) - Subscription and billing management
+6. **Policies** (Placeholder) - Privacy and terms
+7. **Advanced** (Placeholder) - Advanced settings and configurations
+
+**Implementation Details**:
+- Responsive grid layout: single column on mobile, 2-column (240px sidebar + flex content) on desktop
+- State management via React hooks with real-time localStorage sync
+- Profile photo handling via FileReader API with base64 encoding for client-side storage
+- Form fields auto-save after 500ms debounce to prevent excessive writes
+- Matches existing design system: `#f7f8f9` backgrounds, white cards, black buttons, neutral borders
+
+**Data Storage**:
+- Profile data: `localStorage.saku_profile` (JSON object)
+- Profile photo: `localStorage.saku_profile_photo` (base64 data URL)
+
+**Future Enhancements**:
+- Backend API integration for server-side profile storage
+- Image optimization and size limits for profile photos
+- Implementation of remaining sub-pages (Integrations, Monitoring, etc.)
+- Form validation and error handling
+- Success/error toast notifications
 
 ### Development vs Production Behavior
 **Environment Detection**: API routes check `NEXT_PUBLIC_BACKEND_URL` to determine backend availability
