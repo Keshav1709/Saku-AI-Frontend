@@ -50,6 +50,13 @@ export default function SettingsPage() {
     accountInfo: true
   });
 
+  const [policySettings, setPolicySettings] = useState({
+    externalWrites: true,
+    highValueActions: true,
+    newWorkflows: true,
+    sensitiveData: true
+  });
+
   useEffect(() => {
     const token = localStorage.getItem("saku_auth");
     if (!token) router.replace("/login");
@@ -112,6 +119,15 @@ export default function SettingsPage() {
       try {
         const data = JSON.parse(savedNotifications);
         setNotificationSettings(data);
+      } catch {}
+    }
+
+    // Load policy settings
+    const savedPolicies = localStorage.getItem("saku_policies");
+    if (savedPolicies) {
+      try {
+        const data = JSON.parse(savedPolicies);
+        setPolicySettings(data);
       } catch {}
     }
 
@@ -345,6 +361,14 @@ export default function SettingsPage() {
     setNotificationSettings(prev => {
       const updated = { ...prev, [setting]: !prev[setting] };
       localStorage.setItem("saku_notifications", JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const togglePolicy = (setting: keyof typeof policySettings) => {
+    setPolicySettings(prev => {
+      const updated = { ...prev, [setting]: !prev[setting] };
+      localStorage.setItem("saku_policies", JSON.stringify(updated));
       return updated;
     });
   };
@@ -1286,8 +1310,100 @@ export default function SettingsPage() {
               </div>
             )}
 
+            {/* Policies Tab */}
+            {activeTab === "policies" && (
+              <div>
+                <div className="mb-8">
+                  <h2 className="text-2xl font-semibold mb-2">Policies</h2>
+                  <p className="text-sm text-neutral-700">Manage your personal information, preferences, and account settings.</p>
+                </div>
+
+                <div className="space-y-6">
+                  {/* External Writes */}
+                  <div className="flex items-center justify-between p-4 border border-neutral-200 rounded-lg">
+                    <div>
+                      <h3 className="text-sm font-medium text-black mb-1">External Writes</h3>
+                      <p className="text-sm text-neutral-700">Require approval for emails, messages, and documents</p>
+                    </div>
+                    <button
+                      onClick={() => togglePolicy("externalWrites")}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 ${
+                        policySettings.externalWrites ? 'bg-black' : 'bg-neutral-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          policySettings.externalWrites ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* High-Value Actions */}
+                  <div className="flex items-center justify-between p-4 border border-neutral-200 rounded-lg">
+                    <div>
+                      <h3 className="text-sm font-medium text-black mb-1">High-Value Actions</h3>
+                      <p className="text-sm text-neutral-700">Require approval for calendar invites and important decisions</p>
+                    </div>
+                    <button
+                      onClick={() => togglePolicy("highValueActions")}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 ${
+                        policySettings.highValueActions ? 'bg-black' : 'bg-neutral-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          policySettings.highValueActions ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* New Workflows */}
+                  <div className="flex items-center justify-between p-4 border border-neutral-200 rounded-lg">
+                    <div>
+                      <h3 className="text-sm font-medium text-black mb-1">New Workflows</h3>
+                      <p className="text-sm text-neutral-700">Require approval when creating new automated workflows</p>
+                    </div>
+                    <button
+                      onClick={() => togglePolicy("newWorkflows")}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 ${
+                        policySettings.newWorkflows ? 'bg-black' : 'bg-neutral-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          policySettings.newWorkflows ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Sensitive Data */}
+                  <div className="flex items-center justify-between p-4 border border-neutral-200 rounded-lg">
+                    <div>
+                      <h3 className="text-sm font-medium text-black mb-1">Sensitive Data</h3>
+                      <p className="text-sm text-neutral-700">Require approval when handling sensitive information</p>
+                    </div>
+                    <button
+                      onClick={() => togglePolicy("sensitiveData")}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 ${
+                        policySettings.sensitiveData ? 'bg-black' : 'bg-neutral-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          policySettings.sensitiveData ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Other tabs content placeholders */}
-            {activeTab !== "profile" && activeTab !== "integrations" && activeTab !== "monitoring" && activeTab !== "notifications" && activeTab !== "billing" && (
+            {activeTab !== "profile" && activeTab !== "integrations" && activeTab !== "monitoring" && activeTab !== "notifications" && activeTab !== "billing" && activeTab !== "policies" && (
               <div className="text-center py-12">
                 <h2 className="text-xl font-semibold mb-2 capitalize">{activeTab}</h2>
                 <p className="text-neutral-700">This section is coming soon.</p>
