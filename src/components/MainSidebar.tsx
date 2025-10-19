@@ -2,8 +2,20 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import Image from "next/image";
 
 type Conversation = { id: string; title: string; createdAt: string };
+
+type ProfileData = {
+  firstName: string;
+  lastName: string;
+  jobTitle: string;
+  role: string;
+  department: string;
+  primaryEmail: string;
+  language: string;
+  preferenceEmail: string;
+};
 
 export function MainSidebar({ 
   onNew, 
@@ -16,12 +28,74 @@ export function MainSidebar({
 }) {
   const pathname = usePathname();
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [profileData, setProfileData] = useState<ProfileData>({
+    firstName: "Romeo",
+    lastName: "Saha",
+    jobTitle: "",
+    role: "",
+    department: "",
+    primaryEmail: "",
+    language: "English",
+    preferenceEmail: "Romeosahal2@gmail.com"
+  });
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
 
   useEffect(() => {
-    // Load from localStorage for now; later, fetch from backend
+    // Load conversations from localStorage
     const raw = localStorage.getItem("saku_sessions");
     const parsed = raw ? (JSON.parse(raw) as Conversation[]) : [];
     setConversations(parsed);
+
+    // Load profile data from localStorage
+    const savedProfile = localStorage.getItem("saku_profile");
+    if (savedProfile) {
+      try {
+        const data = JSON.parse(savedProfile);
+        setProfileData(data);
+      } catch (error) {
+        console.error("Failed to parse profile data:", error);
+      }
+    }
+
+    // Load profile photo from localStorage
+    const savedPhoto = localStorage.getItem("saku_profile_photo");
+    if (savedPhoto) {
+      setProfilePhoto(savedPhoto);
+    }
+
+    // Listen for storage changes to update profile in real-time
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "saku_profile" && e.newValue) {
+        try {
+          const data = JSON.parse(e.newValue);
+          setProfileData(data);
+        } catch (error) {
+          console.error("Failed to parse updated profile data:", error);
+        }
+      }
+      if (e.key === "saku_profile_photo") {
+        setProfilePhoto(e.newValue);
+      }
+    };
+
+    // Listen for custom events for real-time updates within the same tab
+    const handleProfileUpdate = (e: CustomEvent) => {
+      setProfileData(e.detail);
+    };
+
+    const handlePhotoUpdate = (e: CustomEvent) => {
+      setProfilePhoto(e.detail);
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("profileUpdated", handleProfileUpdate as EventListener);
+    window.addEventListener("profilePhotoUpdated", handlePhotoUpdate as EventListener);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("profileUpdated", handleProfileUpdate as EventListener);
+      window.removeEventListener("profilePhotoUpdated", handlePhotoUpdate as EventListener);
+    };
   }, []);
 
   const navItems = [
@@ -167,14 +241,31 @@ export function MainSidebar({
 
       {/* User Profile */}
       <div className="flex items-center gap-3 p-2 hover:bg-neutral-50 rounded cursor-pointer">
-        <div className="w-8 h-8 bg-neutral-200 rounded-full flex items-center justify-center">
-          <svg className="w-5 h-5 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
+        <div className="w-8 h-8 bg-neutral-200 rounded-full flex items-center justify-center overflow-hidden">
+          {profilePhoto ? (
+            <Image
+              src={profilePhoto}
+              alt="Profile"
+              width={32}
+              height={32}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <svg className="w-5 h-5 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+          )}
         </div>
         <div className="flex-1">
-          <div className="text-sm font-medium text-black">Emillia Caitin</div>
-          <div className="text-xs text-black">hey@agency.com</div>
+          <div className="text-sm font-medium text-black">
+            {profileData.firstName && profileData.lastName 
+              ? `${profileData.firstName} ${profileData.lastName}` 
+              : profileData.firstName || "User"
+            }
+          </div>
+          <div className="text-xs text-black">
+            {profileData.primaryEmail || profileData.preferenceEmail || "No email"}
+          </div>
         </div>
         <svg className="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

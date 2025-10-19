@@ -248,6 +248,8 @@ export default function SettingsPage() {
         const result = reader.result as string;
         setProfilePhoto(result);
         localStorage.setItem("saku_profile_photo", result);
+        // Dispatch custom event for real-time updates within the same tab
+        window.dispatchEvent(new CustomEvent('profilePhotoUpdated', { detail: result }));
       };
       reader.readAsDataURL(file);
     }
@@ -257,15 +259,21 @@ export default function SettingsPage() {
     setProfilePhoto(null);
     setPhotoFile(null);
     localStorage.removeItem("saku_profile_photo");
+    // Dispatch custom event for real-time updates within the same tab
+    window.dispatchEvent(new CustomEvent('profilePhotoUpdated', { detail: null }));
   };
 
   const handleInputChange = (field: keyof typeof profileData, value: string) => {
-    setProfileData(prev => ({ ...prev, [field]: value }));
-    // Auto-save
-    setTimeout(() => {
-      const updated = { ...profileData, [field]: value };
-      localStorage.setItem("saku_profile", JSON.stringify(updated));
-    }, 500);
+    setProfileData(prev => {
+      const updated = { ...prev, [field]: value };
+      // Auto-save
+      setTimeout(() => {
+        localStorage.setItem("saku_profile", JSON.stringify(updated));
+        // Dispatch custom event for real-time updates within the same tab
+        window.dispatchEvent(new CustomEvent('profileUpdated', { detail: updated }));
+      }, 500);
+      return updated;
+    });
   };
 
   const handleSaveChanges = () => {

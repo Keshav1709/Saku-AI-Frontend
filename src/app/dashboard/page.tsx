@@ -1,6 +1,69 @@
+"use client";
+
 import { MainSidebar } from "@/components/MainSidebar";
+import { useEffect, useState } from "react";
+
+type ProfileData = {
+  firstName: string;
+  lastName: string;
+  jobTitle: string;
+  role: string;
+  department: string;
+  primaryEmail: string;
+  language: string;
+  preferenceEmail: string;
+};
 
 export default function Dashboard() {
+  const [profileData, setProfileData] = useState<ProfileData>({
+    firstName: "Romeo",
+    lastName: "Saha",
+    jobTitle: "",
+    role: "",
+    department: "",
+    primaryEmail: "",
+    language: "English",
+    preferenceEmail: "Romeosahal2@gmail.com"
+  });
+
+  useEffect(() => {
+    // Load profile data from localStorage
+    const savedProfile = localStorage.getItem("saku_profile");
+    if (savedProfile) {
+      try {
+        const data = JSON.parse(savedProfile);
+        setProfileData(data);
+      } catch (error) {
+        console.error("Failed to parse profile data:", error);
+      }
+    }
+
+    // Listen for storage changes to update profile in real-time
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "saku_profile" && e.newValue) {
+        try {
+          const data = JSON.parse(e.newValue);
+          setProfileData(data);
+        } catch (error) {
+          console.error("Failed to parse updated profile data:", error);
+        }
+      }
+    };
+
+    // Listen for custom events for real-time updates within the same tab
+    const handleProfileUpdate = (e: CustomEvent) => {
+      setProfileData(e.detail);
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("profileUpdated", handleProfileUpdate as EventListener);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("profileUpdated", handleProfileUpdate as EventListener);
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#f7f8f9]">
       <div className="flex">
@@ -8,7 +71,9 @@ export default function Dashboard() {
         <main className="flex-1 p-6">
           {/* Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-black mb-4">Hello, Romeo</h1>
+            <h1 className="text-3xl font-bold text-black mb-4">
+              Hello, {profileData.firstName || "User"}
+            </h1>
             <div className="relative">
               <svg className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
