@@ -800,64 +800,14 @@ export default function SettingsPage() {
                   </div>
                 )}
 
-                {/* Google Services Section */}
-                <div className="mb-8">
-                  <h3 className="text-base font-semibold mb-1">Google Services</h3>
-                  <p className="text-sm text-neutral-700 mb-4">Connect to Google services to access your Gmail, Drive, and Calendar data.</p>
-                  
-                  <div className="space-y-3">
-                    {integrations.filter(int => ['gmail', 'drive', 'calendar'].includes(int.id)).map(integration => (
-                      <div key={integration.id} className="flex items-center justify-between p-4 border border-neutral-200 rounded-lg hover:border-neutral-300 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center text-xl">
-                            {integration.icon}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-medium text-sm">{integration.name}</h4>
-                              {integration.connected && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 text-xs rounded-full">
-                                  <span className="w-1.5 h-1.5 bg-green-600 rounded-full"></span>
-                                  Connected
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-neutral-700">{integration.description}</p>
-                          </div>
-                        </div>
-                        {integration.connected ? (
-                          <button
-                            onClick={() => toggleIntegration(integration.id)}
-                            disabled={loading}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-neutral-700 hover:text-black transition-colors disabled:opacity-50"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                            {loading ? 'Disconnecting...' : 'Disconnect'}
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => toggleIntegration(integration.id)}
-                            disabled={loading}
-                            className="px-4 py-1.5 bg-black text-white text-sm rounded hover:bg-black/90 transition-colors disabled:opacity-50"
-                          >
-                            {loading ? 'Connecting...' : '+ Connect'}
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
 
                 {/* Communication Section */}
                 <div className="mb-8">
                   <h3 className="text-base font-semibold mb-1">Communication</h3>
-                  <p className="text-sm text-neutral-700 mb-4">Connect messaging and video conferencing tools.</p>
+                  <p className="text-sm text-neutral-700 mb-4">Connect messaging, email, and video conferencing tools.</p>
                   
                   <div className="space-y-3">
-                    {integrations.filter(int => ["slack", "discord"].includes(int.id)).map(integration => (
+                    {integrations.filter(int => ["gmail", "slack", "discord"].includes(int.id)).map(integration => (
                       <div key={integration.id} className="flex items-center justify-between p-4 border border-neutral-200 rounded-lg hover:border-neutral-300 transition-colors">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center text-xl">
@@ -880,7 +830,7 @@ export default function SettingsPage() {
                           <button
                             onClick={() => toggleIntegration(integration.id)}
                             disabled={loading}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-neutral-700 hover:text-black transition-colors disabled:opacity-50"
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-neutral-700 hover:text-black transition-colors disabled:opacity-50 border border-neutral-200 rounded-md hover:border-neutral-300"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -892,7 +842,7 @@ export default function SettingsPage() {
                           <button
                             onClick={() => toggleIntegration(integration.id)}
                             disabled={loading}
-                            className="px-4 py-1.5 bg-black text-white text-sm rounded hover:bg-black/90 transition-colors disabled:opacity-50"
+                            className="px-4 py-1.5 bg-black text-white text-sm rounded-md hover:bg-black/90 transition-colors disabled:opacity-50 font-medium"
                           >
                             {loading ? 'Connecting...' : '+ Connect'}
                           </button>
@@ -905,10 +855,10 @@ export default function SettingsPage() {
                 {/* Productivity Section */}
                 <div className="mb-8">
                   <h3 className="text-base font-semibold mb-1">Productivity</h3>
-                  <p className="text-sm text-neutral-700 mb-4">Connect project management and productivity tools.</p>
+                  <p className="text-sm text-neutral-700 mb-4">Connect project management, calendar, and productivity tools.</p>
                   
                   <div className="space-y-3">
-                    {integrations.filter(int => int.id === "notion").map(integration => (
+                    {integrations.filter(int => ["calendar", "notion"].includes(int.id)).map(integration => (
                       <div key={integration.id} className="flex items-center justify-between p-4 border border-neutral-200 rounded-lg hover:border-neutral-300 transition-colors">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center text-xl">
@@ -931,7 +881,7 @@ export default function SettingsPage() {
                           <button
                             onClick={() => toggleIntegration(integration.id)}
                             disabled={loading}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-neutral-700 hover:text-black transition-colors disabled:opacity-50"
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-neutral-700 hover:text-black transition-colors disabled:opacity-50 border border-neutral-200 rounded-md hover:border-neutral-300"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -943,7 +893,7 @@ export default function SettingsPage() {
                           <button
                             onClick={() => toggleIntegration(integration.id)}
                             disabled={loading}
-                            className="px-4 py-1.5 bg-black text-white text-sm rounded hover:bg-black/90 transition-colors disabled:opacity-50"
+                            className="px-4 py-1.5 bg-black text-white text-sm rounded-md hover:bg-black/90 transition-colors disabled:opacity-50 font-medium"
                           >
                             {loading ? 'Connecting...' : '+ Connect'}
                           </button>
@@ -982,7 +932,7 @@ export default function SettingsPage() {
                           <button
                             onClick={() => toggleIntegration(integration.id)}
                             disabled={loading}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-neutral-700 hover:text-black transition-colors disabled:opacity-50"
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-neutral-700 hover:text-black transition-colors disabled:opacity-50 border border-neutral-200 rounded-md hover:border-neutral-300"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -994,7 +944,7 @@ export default function SettingsPage() {
                           <button
                             onClick={() => toggleIntegration(integration.id)}
                             disabled={loading}
-                            className="px-4 py-1.5 bg-black text-white text-sm rounded hover:bg-black/90 transition-colors disabled:opacity-50"
+                            className="px-4 py-1.5 bg-black text-white text-sm rounded-md hover:bg-black/90 transition-colors disabled:opacity-50 font-medium"
                           >
                             {loading ? 'Connecting...' : '+ Connect'}
                           </button>
