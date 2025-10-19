@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { MainSidebar } from "@/components/MainSidebar";
 
 export default function UploadPage() {
   const [files, setFiles] = useState<File[]>([]);
@@ -34,30 +35,35 @@ export default function UploadPage() {
   }
 
   return (
-    <main className="p-6">
-      <h1 className="text-xl font-semibold mb-4">Upload</h1>
-      <div className="border rounded p-4">
-        <input type="file" multiple onChange={onPick} />
-        {files.length > 0 && (
-          <ul className="mt-3 space-y-2">
-            {files.map((f, i) => (
-              <li key={i} className="flex items-center justify-between">
-                <span className="truncate max-w-[70%]">{f.name}</span>
-                <button className="text-sm underline" onClick={() => removeAt(i)}>
-                  remove
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        <div className="mt-4 flex gap-2">
-          <button className="px-4 py-2 bg-black text-white rounded" onClick={onUpload}>
-            Upload {files.length ? `(${files.length})` : ""}
-          </button>
-          {status && <span className="text-sm opacity-70">{status}</span>}
+    <div className="min-h-screen bg-[#f7f8f9] flex">
+      <MainSidebar />
+      <main className="flex-1 p-6">
+        <div className="bg-white rounded-2xl border p-6">
+          <h1 className="text-xl font-semibold mb-4">Upload</h1>
+          <div className="border rounded p-4">
+            <input type="file" multiple onChange={onPick} />
+            {files.length > 0 && (
+              <ul className="mt-3 space-y-2">
+                {files.map((f, i) => (
+                  <li key={i} className="flex items-center justify-between">
+                    <span className="truncate max-w-[70%]">{f.name}</span>
+                    <button className="text-sm underline" onClick={() => removeAt(i)}>
+                      remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="mt-4 flex gap-2">
+              <button className="px-4 py-2 bg-black text-white rounded" onClick={onUpload}>
+                Upload {files.length ? `(${files.length})` : ""}
+              </button>
+              {status && <span className="text-sm opacity-70">{status}</span>}
+            </div>
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }
 

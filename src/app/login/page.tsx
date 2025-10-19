@@ -26,7 +26,7 @@ export default function LoginPage() {
         localStorage.setItem("saku_auth", "ok");
         router.replace("/onboarding");
         return;
-      } catch (err) {
+      } catch {
         // fallthrough to error below
       }
     }

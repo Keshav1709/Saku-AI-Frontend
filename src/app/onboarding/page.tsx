@@ -18,7 +18,7 @@ export default function Onboarding() {
     <main className="min-h-screen bg-[#f7f8f9] py-6 px-4">
       <div className="mx-auto w-full max-w-6xl bg-white rounded-2xl shadow-sm p-6 sm:p-8 grid gap-6 md:grid-cols-2">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-semibold mb-4 sm:mb-6">Here's what Saku AI can Do for you !</h2>
+          <h2 className="text-2xl sm:text-3xl font-semibold mb-4 sm:mb-6">Here&apos;s what Saku AI can Do for you !</h2>
           <div className="space-y-3">
             <ButtonItem index={1} active={step === 1} title="Launcher" subtitle="Converse naturally and ask Saku to take actions." onClick={() => setStep(1)} />
             <ButtonItem index={2} active={step === 2} title="Chat" subtitle="Connect all chats & tools with integration" onClick={() => setStep(2)} />

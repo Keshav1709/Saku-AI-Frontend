@@ -27,11 +27,17 @@ export function TopNav() {
         <Link href="/chat" className={linkCls("/chat")}>
           Chat
         </Link>
+        <Link href="/workflows" className={linkCls("/workflows")}>
+          Workflows
+        </Link>
         <Link href="/upload" className={linkCls("/upload")}>
           Upload
         </Link>
         <Link href="/docs" className={linkCls("/docs")}>
           Documents
+        </Link>
+        <Link href="/settings" className={linkCls("/settings")}>
+          Settings
         </Link>
         <button className="ml-4 underline" onClick={logout}>
           Logout
