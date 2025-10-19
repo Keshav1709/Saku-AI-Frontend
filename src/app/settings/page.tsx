@@ -161,8 +161,8 @@ export default function SettingsPage() {
   const getIntegrationDescription = (key: string) => {
     const descriptions: { [key: string]: string } = {
       'gmail': 'Access your Gmail messages and data',
-      'google-drive': 'Access your Google Drive files and folders',
-      'google-calendar': 'Access your Google Calendar events',
+      'drive': 'Access your Google Drive files and folders',
+      'calendar': 'Access your Google Calendar events',
       'slack': 'Connect to your Slack workspace',
       'notion': 'Access your Notion workspace',
       'discord': 'Connect to Discord servers'
@@ -173,8 +173,8 @@ export default function SettingsPage() {
   const getIntegrationIcon = (key: string) => {
     const icons: { [key: string]: string } = {
       'gmail': '📧',
-      'google-drive': '📁',
-      'google-calendar': '📅',
+      'drive': '📁',
+      'calendar': '📅',
       'slack': '💬',
       'notion': '📝',
       'discord': '🎮'
@@ -306,7 +306,7 @@ export default function SettingsPage() {
           },
           body: JSON.stringify({
             action: 'disconnect',
-            service_type: id.replace('google-', '')
+            service_type: id
           }),
         });
 
@@ -959,7 +959,7 @@ export default function SettingsPage() {
                   <p className="text-sm text-neutral-700 mb-4">Connect drives and storage tools</p>
                   
                   <div className="space-y-3">
-                    {integrations.filter(int => int.id === "google-drive").map(integration => (
+                    {integrations.filter(int => int.id === "drive").map(integration => (
                       <div key={integration.id} className="flex items-center justify-between p-4 border border-neutral-200 rounded-lg hover:border-neutral-300 transition-colors">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center text-xl">
