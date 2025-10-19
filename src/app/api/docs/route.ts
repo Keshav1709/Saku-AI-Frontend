@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 export async function GET() {
   const backend = process.env.NEXT_PUBLIC_BACKEND_URL;
   if (backend) {
-    const resp = await fetch(`${backend.replace(/\/$/, "")}/docs`);
+    const resp = await fetch(`${backend.replace(/\/$/, "")}/documents`);
     const json = await resp.json().catch(() => ({ docs: [] }));
     return NextResponse.json(json);
   }

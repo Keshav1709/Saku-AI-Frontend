@@ -9,6 +9,8 @@ function sleep(ms: number) {
 export async function GET(req: Request) {
   const {searchParams} = new URL(req.url);
   const prompt = searchParams.get('prompt') || '';
+  const docIds = searchParams.get('docIds') || '';
+  const convId = searchParams.get('convId') || '';
 
   // Default backend URL if not set in environment
   const backend =
@@ -16,8 +18,10 @@ export async function GET(req: Request) {
 
   try {
     // Proxy to FastAPI backend SSE
-    const target = `${backend.replace(/\/$/, '')}/chat/stream?prompt=${
-        encodeURIComponent(prompt)}`;
+    const qp = new URLSearchParams({ prompt });
+    if (docIds) qp.set('docIds', docIds);
+    if (convId) qp.set('convId', convId);
+    const target = `${backend.replace(/\/$/, '')}/chat/stream?${qp.toString()}`;
     console.log(`Proxying to backend: ${target}`);
 
     const resp = await fetch(

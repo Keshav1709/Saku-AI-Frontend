@@ -134,53 +134,13 @@ export default function WorkflowBuilder() {
   useEffect(() => {
     const token = localStorage.getItem("saku_auth");
     if (!token) router.replace("/login");
-
-    // Load workflow data
-    const savedWorkflows = localStorage.getItem("saku_workflows");
-    if (savedWorkflows) {
+    (async () => {
       try {
-        const workflows = JSON.parse(savedWorkflows);
-        const currentWorkflow = workflows.find((w: Workflow) => w.id === params.id);
-        if (currentWorkflow) {
-          setWorkflow(currentWorkflow);
-        } else {
-          // Create example workflow for demo
-          const exampleWorkflow: Workflow = {
-            id: params.id as string,
-            name: "Email Summarizer Workflow",
-            description: "Automatically summarize emails and send to Slack",
-            nodes: [
-              {
-                id: "node-1",
-                componentId: "email-trigger",
-                x: 100,
-                y: 100,
-                config: { service: "Gmail" }
-              },
-              {
-                id: "node-2",
-                componentId: "text-summary",
-                x: 400,
-                y: 100,
-                config: { service: "GPT-4", maxWords: 100 }
-              },
-              {
-                id: "node-3",
-                componentId: "slack-message",
-                x: 700,
-                y: 100,
-                config: { channel: "#email-summaries" }
-              }
-            ],
-            connections: [
-              { from: "node-1", to: "node-2" },
-              { from: "node-2", to: "node-3" }
-            ]
-          };
-          setWorkflow(exampleWorkflow);
-        }
+        const resp = await fetch(`/api/workflows/${params.id}`);
+        const json = await resp.json();
+        if (json?.ok && json?.workflow) setWorkflow(json.workflow);
       } catch {}
-    }
+    })();
   }, [params.id, router]);
 
   const handleDragStart = (e: React.DragEvent, component: WorkflowComponent) => {
@@ -236,19 +196,22 @@ export default function WorkflowBuilder() {
     setZoom(prev => Math.max(50, prev - 25));
   };
 
-  const handleSaveWorkflow = () => {
-    const savedWorkflows = localStorage.getItem("saku_workflows");
-    const workflows = savedWorkflows ? JSON.parse(savedWorkflows) : [];
-    const updatedWorkflows = workflows.map((w: Workflow) =>
-      w.id === workflow.id ? workflow : w
-    );
-    localStorage.setItem("saku_workflows", JSON.stringify(updatedWorkflows));
+  const handleSaveWorkflow = async () => {
+    try {
+      await fetch(`/api/workflows/${workflow.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: workflow.name, description: workflow.description, nodes: workflow.nodes, connections: workflow.connections })
+      });
+    } catch {}
   };
 
-  const handleExecute = () => {
-    // Simulate workflow execution
-    console.log("Executing workflow:", workflow);
-    // Here you would typically send the workflow to a backend service
+  const handleExecute = async () => {
+    try {
+      const resp = await fetch(`/api/workflows/${workflow.id}/run`, { method: 'POST' });
+      const json = await resp.json();
+      console.log('Run started', json);
+    } catch {}
   };
 
   const handleDryRun = () => {

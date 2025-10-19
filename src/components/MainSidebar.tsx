@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import Image from "next/image";
 
-type Conversation = { id: string; title: string; createdAt: string };
+type Conversation = { id: string; title?: string; createdAt?: string };
 
 type ProfileData = {
   firstName: string;
@@ -41,10 +41,19 @@ export function MainSidebar({
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
 
   useEffect(() => {
-    // Load conversations from localStorage
-    const raw = localStorage.getItem("saku_sessions");
-    const parsed = raw ? (JSON.parse(raw) as Conversation[]) : [];
-    setConversations(parsed);
+    // Load conversations from backend minimal index if available, fallback localStorage
+    (async () => {
+      try {
+        // We don't yet have a list endpoint; use local storage list for now
+        const raw = localStorage.getItem("saku_sessions");
+        const parsed = raw ? (JSON.parse(raw) as Conversation[]) : [];
+        setConversations(parsed);
+      } catch {
+        const raw = localStorage.getItem("saku_sessions");
+        const parsed = raw ? (JSON.parse(raw) as Conversation[]) : [];
+        setConversations(parsed);
+      }
+    })();
 
     // Load profile data from localStorage
     const savedProfile = localStorage.getItem("saku_profile");
@@ -127,7 +136,7 @@ export function MainSidebar({
       )
     },
     {
-      href: "#",
+      href: "/meetings",
       label: "Meetings",
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -136,7 +145,7 @@ export function MainSidebar({
       )
     },
     {
-      href: "#",
+      href: "/insights",
       label: "Insights",
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
