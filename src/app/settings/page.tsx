@@ -27,6 +27,7 @@ export default function SettingsPage() {
     role: "",
     department: "",
     language: "English",
+    preferenceEmail: "",
   });
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -108,6 +109,11 @@ export default function SettingsPage() {
         const data = await response.json();
         const user = data.user;
         
+        // Extract first and last name from the full name
+        const nameParts = user.name ? user.name.split(' ') : ['', ''];
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+        
         setProfileData({
           name: user.name || "",
           email: user.email || "",
@@ -115,6 +121,7 @@ export default function SettingsPage() {
           role: "",
           department: "",
           language: "English",
+          preferenceEmail: "",
         });
         
         if (user.avatar) {
@@ -124,6 +131,11 @@ export default function SettingsPage() {
         console.error('Failed to load profile data');
         // Fallback to session data
         if (session?.user) {
+          // Extract first and last name from the full name
+          const nameParts = session.user.name ? session.user.name.split(' ') : ['', ''];
+          const firstName = nameParts[0] || '';
+          const lastName = nameParts.slice(1).join(' ') || '';
+          
           setProfileData({
             name: session.user.name || "",
             email: session.user.email || "",
@@ -131,6 +143,7 @@ export default function SettingsPage() {
             role: "",
             department: "",
             language: "English",
+            preferenceEmail: "",
           });
           
           if (session.user.image) {
@@ -142,6 +155,11 @@ export default function SettingsPage() {
       console.error('Error loading profile data:', error);
       // Fallback to session data
       if (session?.user) {
+        // Extract first and last name from the full name
+        const nameParts = session.user.name ? session.user.name.split(' ') : ['', ''];
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+        
         setProfileData({
           name: session.user.name || "",
           email: session.user.email || "",
@@ -149,6 +167,7 @@ export default function SettingsPage() {
           role: "",
           department: "",
           language: "English",
+          preferenceEmail: "",
         });
         
         if (session.user.image) {
@@ -159,11 +178,31 @@ export default function SettingsPage() {
   };
 
   const loadIntegrations = async () => {
-    // Mock integrations data - OAuth logic moved to external location
+    // Check connection status for Google services
+    const googleServices = ['gmail', 'drive', 'calendar', 'tasks'];
+    const connectionChecks = await Promise.allSettled(
+      googleServices.map(async (service) => {
+        try {
+          const response = await fetch(`/api/integrations/${service}`);
+          return { service, connected: response.ok };
+        } catch {
+          return { service, connected: false };
+        }
+      })
+    );
+
+    const connectionStatusMap: { [key: string]: boolean } = {};
+    connectionChecks.forEach((result) => {
+      if (result.status === 'fulfilled') {
+        connectionStatusMap[result.value.service] = result.value.connected;
+      }
+    });
+
     const mockIntegrations = [
-      { id: 'gmail', name: 'Gmail', description: 'Access your Gmail messages and data', icon: '📧', connected: false },
-      { id: 'drive', name: 'Google Drive', description: 'Access your Google Drive files and folders', icon: '📁', connected: false },
-      { id: 'calendar', name: 'Google Calendar', description: 'Access your Google Calendar events', icon: '📅', connected: false },
+      { id: 'gmail', name: 'Gmail', description: 'Access your Gmail messages and data', icon: '📧', connected: connectionStatusMap.gmail || false },
+      { id: 'drive', name: 'Google Drive', description: 'Access your Google Drive files and folders', icon: '📁', connected: connectionStatusMap.drive || false },
+      { id: 'calendar', name: 'Google Calendar', description: 'Access your Google Calendar events', icon: '📅', connected: connectionStatusMap.calendar || false },
+      { id: 'tasks', name: 'Google Tasks', description: 'Manage your Google Tasks and to-do lists', icon: '✅', connected: connectionStatusMap.tasks || false },
       { id: 'slack', name: 'Slack', description: 'Connect to your Slack workspace', icon: '💬', connected: false },
       { id: 'notion', name: 'Notion', description: 'Access your Notion workspace', icon: '📝', connected: false },
       { id: 'discord', name: 'Discord', description: 'Connect to Discord servers', icon: '🎮', connected: false }
@@ -176,6 +215,7 @@ export default function SettingsPage() {
       'gmail': 'Access your Gmail messages and data',
       'drive': 'Access your Google Drive files and folders',
       'calendar': 'Access your Google Calendar events',
+      'tasks': 'Manage your Google Tasks and to-do lists',
       'slack': 'Connect to your Slack workspace',
       'notion': 'Access your Notion workspace',
       'discord': 'Connect to Discord servers'
@@ -188,6 +228,7 @@ export default function SettingsPage() {
       'gmail': '📧',
       'drive': '📁',
       'calendar': '📅',
+      'tasks': '✅',
       'slack': '💬',
       'notion': '📝',
       'discord': '🎮'
@@ -196,12 +237,55 @@ export default function SettingsPage() {
   };
 
   const testConnection = async (serviceType: string) => {
-    // OAuth logic moved to external location - show placeholder message
-    setDebugInfo({
-      type: 'info',
-      message: `Integration testing for ${serviceType} - OAuth logic moved to external location`,
-      timestamp: new Date().toISOString()
-    });
+    setLoading(true);
+    setConnectionStatus(prev => ({ ...prev, [serviceType]: 'testing' }));
+    
+    try {
+      const response = await fetch(`/api/integrations/${serviceType}`);
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        setConnectionStatus(prev => ({ 
+          ...prev, 
+          [serviceType]: `connected (${data.totalCount || 0} items)` 
+        }));
+        
+        // Store fetched data for display
+        if (serviceType === 'gmail') {
+          setFetchedData(prev => ({ ...prev, gmail: data }));
+        } else if (serviceType === 'drive') {
+          setFetchedData(prev => ({ ...prev, drive: data }));
+        } else if (serviceType === 'calendar') {
+          setFetchedData(prev => ({ ...prev, calendar: data }));
+        }
+        
+        setDebugInfo({
+          type: 'success',
+          message: `Successfully connected to ${serviceType}. Found ${data.totalCount || 0} items.`,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        setConnectionStatus(prev => ({ 
+          ...prev, 
+          [serviceType]: data.needsReauth ? 'needs_reauth' : 'error' 
+        }));
+        
+        setDebugInfo({
+          type: 'error',
+          message: data.error || `Failed to connect to ${serviceType}`,
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      setConnectionStatus(prev => ({ ...prev, [serviceType]: 'error' }));
+      setDebugInfo({
+        type: 'error',
+        message: `Network error connecting to ${serviceType}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        timestamp: new Date().toISOString()
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -258,6 +342,29 @@ export default function SettingsPage() {
         setMessage({ type: 'success', text: 'Profile updated successfully!' });
         // Reload profile data from database
         await loadProfileData();
+        
+        // Extract first and last name from the full name for localStorage
+        const nameParts = profileData.name ? profileData.name.split(' ') : ['', ''];
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+        
+        const updatedProfileData = {
+          firstName,
+          lastName,
+          jobTitle: profileData.jobTitle,
+          role: profileData.role,
+          department: profileData.department,
+          primaryEmail: session.user.email || "",
+          language: profileData.language,
+          preferenceEmail: profileData.preferenceEmail
+        };
+        
+        // Update localStorage
+        localStorage.setItem("saku_profile", JSON.stringify(updatedProfileData));
+        
+        // Dispatch custom events for real-time updates
+        window.dispatchEvent(new CustomEvent('profileUpdated', { detail: updatedProfileData }));
+        window.dispatchEvent(new CustomEvent('profileRefresh'));
       } else {
         throw new Error('Failed to update profile');
       }
@@ -279,12 +386,17 @@ export default function SettingsPage() {
   };
 
   const toggleIntegration = async (id: string) => {
-    // OAuth logic moved to external location - show placeholder message
-    setDebugInfo({
-      type: 'info',
-      message: `Integration toggle for ${id} - OAuth logic moved to external location`,
-      timestamp: new Date().toISOString()
-    });
+    if (['gmail', 'drive', 'calendar', 'tasks'].includes(id)) {
+      // For Google services, test the connection
+      await testConnection(id);
+    } else {
+      // For other services, show placeholder
+      setDebugInfo({
+        type: 'info',
+        message: `Integration toggle for ${id} - OAuth logic moved to external location`,
+        timestamp: new Date().toISOString()
+      });
+    }
   };
 
   const toggleMonitoring = (setting: keyof typeof monitoringSettings) => {
@@ -669,6 +781,12 @@ export default function SettingsPage() {
                     >
                       Test Calendar
                     </button>
+                    <button 
+                      onClick={() => testConnection('tasks')}
+                      className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                    >
+                      Test Tasks
+                    </button>
                   </div>
                 </div>
 
@@ -795,7 +913,7 @@ export default function SettingsPage() {
                   <p className="text-sm text-neutral-700 mb-4">Connect project management, calendar, and productivity tools.</p>
                   
                   <div className="space-y-3">
-                    {integrations.filter(int => ["calendar", "notion"].includes(int.id)).map(integration => (
+                    {integrations.filter(int => ["calendar", "tasks", "notion"].includes(int.id)).map(integration => (
                       <div key={integration.id} className="flex items-center justify-between p-4 border border-neutral-200 rounded-lg hover:border-neutral-300 transition-colors">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center text-xl">
