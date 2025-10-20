@@ -1,14 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function Onboarding() {
   const [step, setStep] = useState(1);
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (status === "loading") return;
+    
+    if (!session) {
+      router.replace("/login");
+      return;
+    }
+  }, [session, status, router]);
 
   function onNext() {
     if (step >= 4) {
-      window.location.href = "/connect"; // move to tools page after last step
+      window.location.href = "/dashboard"; // move to dashboard after last step
       return;
     }
     setStep((s) => Math.min(4, s + 1));
@@ -28,7 +41,7 @@ export default function Onboarding() {
           <div className="flex flex-wrap gap-2 mt-6 items-center">
             <button className="border rounded px-3 py-2 disabled:opacity-50" disabled={step === 1} onClick={() => setStep((s) => Math.max(1, s - 1))}>Previous</button>
             <button className="bg-[#0b1220] text-white rounded px-4 py-2" onClick={onNext}>{step >= 4 ? "Finish" : "Next"}</button>
-            <Link href="/connect" className="ml-auto underline text-sm">Skip</Link>
+            <Link href="/dashboard" className="ml-auto underline text-sm">Skip</Link>
           </div>
         </div>
         <div className="rounded-xl bg-[#f7f8f9] border min-h-[220px] sm:min-h-[360px] flex items-center justify-center p-3">

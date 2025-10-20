@@ -9,28 +9,24 @@ export default function ConnectPage() {
   const [items, setItems] = useState<Connector[]>([]);
   const [loading, setLoading] = useState(true);
 
-  async function refresh() {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/connectors");
-      const json = await res.json();
-      setItems(json.connectors ?? []);
-    } finally {
-      setLoading(false);
-    }
-  }
-
+  // Mock data - OAuth logic moved to external location
   useEffect(() => {
-    refresh();
+    setLoading(true);
+    const mockConnectors = [
+      { key: 'gmail', name: 'Gmail', connected: false },
+      { key: 'drive', name: 'Google Drive', connected: false },
+      { key: 'calendar', name: 'Google Calendar', connected: false },
+      { key: 'slack', name: 'Slack', connected: false },
+      { key: 'notion', name: 'Notion', connected: false },
+      { key: 'discord', name: 'Discord', connected: false }
+    ];
+    setItems(mockConnectors);
+    setLoading(false);
   }, []);
 
-  async function toggle(key: string) {
-    await fetch("/api/connectors/toggle", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key }),
-    });
-    refresh();
+  function toggle(key: string) {
+    // OAuth logic moved to external location - show placeholder message
+    alert(`Integration toggle for ${key} - OAuth logic moved to external location`);
   }
 
   return (

@@ -16,22 +16,17 @@ export default function IntegrationsPage() {
 
   const fetchData = async (service: string, type: string) => {
     setLoading(true);
-    try {
-      const response = await fetch(`/api/integrations?service=${service}&type=${type}&maxResults=10`);
-      const result = await response.json();
-      
+    // OAuth logic moved to external location - show placeholder data
+    setTimeout(() => {
       if (service === 'gmail') {
-        setData(prev => ({ ...prev, messages: result.messages || [] }));
+        setData(prev => ({ ...prev, messages: [] }));
       } else if (service === 'drive') {
-        setData(prev => ({ ...prev, files: result.files || [] }));
+        setData(prev => ({ ...prev, files: [] }));
       } else if (service === 'calendar') {
-        setData(prev => ({ ...prev, events: result.events || [] }));
+        setData(prev => ({ ...prev, events: [] }));
       }
-    } catch (error) {
-      console.error(`Failed to fetch ${service} ${type}:`, error);
-    } finally {
       setLoading(false);
-    }
+    }, 1000);
   };
 
   useEffect(() => {
@@ -101,7 +96,7 @@ export default function IntegrationsPage() {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-gray-500">No Gmail messages found. Make sure Gmail is connected.</p>
+                      <p className="text-gray-500">No Gmail messages found. OAuth logic moved to external location.</p>
                     )}
                   </div>
                 )}
@@ -130,7 +125,7 @@ export default function IntegrationsPage() {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-gray-500">No Google Drive files found. Make sure Google Drive is connected.</p>
+                      <p className="text-gray-500">No Google Drive files found. OAuth logic moved to external location.</p>
                     )}
                   </div>
                 )}
@@ -163,7 +158,7 @@ export default function IntegrationsPage() {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-gray-500">No calendar events found. Make sure Google Calendar is connected.</p>
+                      <p className="text-gray-500">No calendar events found. OAuth logic moved to external location.</p>
                     )}
                   </div>
                 )}

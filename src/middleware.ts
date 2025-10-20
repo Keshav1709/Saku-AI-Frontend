@@ -1,30 +1,26 @@
+import {withAuth} from 'next-auth/middleware';
 import {NextResponse} from 'next/server';
-import type {NextRequest} from 'next/server';
 
-export function middleware(request: NextRequest) {
-  const {pathname} = request.nextUrl;
-  // Allow public paths
-  // Public routes: login, static, api, favicon, splash, onboarding, signup
-  if (pathname.startsWith('/login') || pathname.startsWith('/_next') ||
-      pathname.startsWith('/api') || pathname === '/favicon.ico' ||
-      pathname === '/' || pathname.startsWith('/signup')) {
-    return NextResponse.next();
-  }
-  const cookie = request.cookies.get('saku_auth');
-  // Prefer cookie if present (future-proof), otherwise allow client-side
-  // localStorage guard
-  if (!cookie &&
-      (pathname.startsWith('/chat') || pathname.startsWith('/connect') ||
-       pathname.startsWith('/dashboard') ||
-       pathname.startsWith('/onboarding') || pathname.startsWith('/settings') ||
-       pathname.startsWith('/upload') || pathname.startsWith('/docs') ||
-       pathname.startsWith('/workflows'))) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/login';
-    return NextResponse.redirect(url);
-  }
+export default withAuth(function middleware(req) {
+  // Add any additional middleware logic here if needed
   return NextResponse.next();
-}
+}, {
+  callbacks: {
+    authorized: ({token, req}) => {
+      const {pathname} = req.nextUrl;
+
+      // Allow public paths
+      if (pathname.startsWith('/login') || pathname.startsWith('/signup') ||
+          pathname.startsWith('/_next') || pathname.startsWith('/api') ||
+          pathname === '/favicon.ico' || pathname === '/') {
+        return true;
+      }
+
+      // Require authentication for protected routes
+      return !!token;
+    },
+  },
+});
 
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
