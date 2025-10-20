@@ -7,12 +7,54 @@ import Image from "next/image";
 import { useSession } from "next-auth/react";
 
 export default function ChatPage() {
+  function renderMarkdownToHtml(text: string) {
+    const escapeHtml = (s: string) => s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+    const lines = text.split("\n");
+    const html: string[] = [];
+    let inList = false;
+
+    for (const raw of lines) {
+      const line = raw.trimEnd();
+      if (/^###\s+/.test(line)) {
+        if (inList) { html.push("</ul>"); inList = false; }
+        html.push(`<h3>${escapeHtml(line.replace(/^###\s+/, ""))}</h3>`);
+        continue;
+      }
+      if (/^##\s+/.test(line)) {
+        if (inList) { html.push("</ul>"); inList = false; }
+        html.push(`<h2>${escapeHtml(line.replace(/^##\s+/, ""))}</h2>`);
+        continue;
+      }
+      if (/^-\s+/.test(line)) {
+        if (!inList) { html.push("<ul>"); inList = true; }
+        const item = line.replace(/^-\s+/, "");
+        const bold = item.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+        html.push(`<li>${escapeHtml(bold).replace(/&lt;strong&gt;|&lt;\/strong&gt;/g, (m)=> m==='&lt;strong&gt;'?'<strong>':'</strong>')}</li>`);
+        continue;
+      }
+      if (line === "") {
+        if (inList) { html.push("</ul>"); inList = false; }
+        html.push("<p></p>");
+        continue;
+      }
+      const bold = line.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+      html.push(`<p>${escapeHtml(bold).replace(/&lt;strong&gt;|&lt;\/strong&gt;/g, (m)=> m==='&lt;strong&gt;'?'<strong>':'</strong>')}</p>`);
+    }
+    if (inList) html.push("</ul>");
+    return html.join("\n");
+  }
   const router = useRouter();
   const { data: session } = useSession();
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string; citations?: any[] }[]>([]);
   const [input, setInput] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
-  const [sessionId, setSessionId] = useState<string>(() => crypto.randomUUID());
+  const [sessionId, setSessionId] = useState<string>(() => "");
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [showWelcome, setShowWelcome] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -40,6 +82,20 @@ export default function ChatPage() {
   useEffect(() => {
     const token = localStorage.getItem("saku_auth");
     if (!token) router.replace("/login");
+    // ensure a conversation exists
+    (async () => {
+      try {
+        const res = await fetch('/api/conversations', { method: 'POST' });
+        const data = await res.json();
+        if (data?.ok && data?.conversation?.id) {
+          setSessionId(data.conversation.id);
+        } else {
+          setSessionId(crypto.randomUUID());
+        }
+      } catch {
+        setSessionId(crypto.randomUUID());
+      }
+    })();
   }, [router]);
 
   // Fetch profile data
@@ -118,9 +174,32 @@ export default function ChatPage() {
     const userMsg = { role: "user" as const, content: input };
     setMessages((m) => [...m, userMsg, { role: "assistant", content: "", citations: [] }]);
     setInput("");
-    // Stream via SSE from internal API
-    const url = `/api/chat/stream?prompt=${encodeURIComponent(userMsg.content)}`;
-    const evt = new EventSource(url);
+
+    // Upload any attached files first and collect doc_ids
+    let docIds: string[] = [];
+    if (uploadedFiles.length > 0) {
+      try {
+        const uploads = uploadedFiles.map(async (file) => {
+          const form = new FormData();
+          form.append("file", file);
+          const res = await fetch("/api/docs/upload", { method: "POST", body: form });
+          if (!res.ok) throw new Error("upload_failed");
+          const json = await res.json();
+          if (json?.ok && json?.doc_id) return json.doc_id as string;
+          throw new Error("invalid_upload_response");
+        });
+        docIds = await Promise.all(uploads);
+        setUploadedFiles([]);
+      } catch (e) {
+        console.error("Attachment upload failed:", e);
+      }
+    }
+
+    // Stream via SSE from internal API including docIds as filter when present
+    const qp = new URLSearchParams({ prompt: userMsg.content });
+    if (docIds.length > 0) qp.set("docIds", docIds.join(","));
+    if (sessionId) qp.set("convId", sessionId);
+    const evt = new EventSource(`/api/chat/stream?${qp.toString()}`);
     evt.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
@@ -179,9 +258,14 @@ export default function ChatPage() {
           setSessionId(crypto.randomUUID());
           setMessages([]);
         }}
-        onSelect={(id) => {
+        onSelect={async (id) => {
           setSessionId(id);
-          // future: load messages for that session
+          try {
+            const resp = await fetch(`/api/conversations/${id}`);
+            const json = await resp.json();
+            const msgs = (json?.conversation?.messages || []).map((m: any) => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content, citations: m.citations || [] }));
+            setMessages(msgs);
+          } catch {}
         }}
       />
       <main className="flex-1 flex flex-col bg-white overflow-hidden">
@@ -193,17 +277,17 @@ export default function ChatPage() {
               <p className="text-sm text-gray-600 mt-1">Break down lengthy texts into concise summaries to grasp.</p>
             </div>
             <div className="flex items-center gap-3">
-              <button className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors">
+              <button type="button" disabled aria-disabled className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center opacity-60 cursor-not-allowed" title="Coming soon">
                 <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </button>
-              <button className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors">
+              <button type="button" disabled aria-disabled className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center opacity-60 cursor-not-allowed" title="Coming soon">
                 <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
                 </svg>
               </button>
-              <button className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors">
+              <button type="button" disabled aria-disabled className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center opacity-60 cursor-not-allowed" title="Coming soon">
                 <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 </svg>
@@ -314,7 +398,7 @@ export default function ChatPage() {
                       : "bg-gray-100 text-black"
                   }`}>
                     <div className="text-sm font-medium mb-1 opacity-80">{m.role}</div>
-                    <div className="whitespace-pre-wrap">{m.content}</div>
+                    <div className="prose prose-neutral max-w-none" dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(m.content) }} />
                     {m.citations && m.citations.length > 0 && (
                       <div className="mt-3 pt-3 border-t border-gray-300">
                         <div className="text-xs font-medium mb-2">Sources:</div>
@@ -323,7 +407,6 @@ export default function ChatPage() {
                             <div key={idx} className="text-xs bg-white bg-opacity-20 p-2 rounded">
                               <div className="font-medium">
                                 {citation.doc_id ? `Document ${citation.doc_id}` : 'Source'}
-                                {citation.chunk_index !== undefined && ` (Chunk ${citation.chunk_index})`}
                               </div>
                               <div className="mt-1 opacity-90">
                                 {citation.snippet}
@@ -398,7 +481,7 @@ export default function ChatPage() {
                 
                 {/* Input Icons */}
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                  <button className="text-gray-400 hover:text-gray-600">
+                  <button type="button" disabled aria-disabled className="text-gray-300 cursor-not-allowed" title="Coming soon">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
