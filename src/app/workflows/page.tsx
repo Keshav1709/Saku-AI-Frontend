@@ -71,39 +71,28 @@ export default function WorkflowsPage() {
   useEffect(() => {
     const token = localStorage.getItem("saku_auth");
     if (!token) router.replace("/login");
-
-    // Load saved workflows
-    const savedWorkflows = localStorage.getItem("saku_workflows");
-    if (savedWorkflows) {
+    (async () => {
       try {
-        setWorkflows(JSON.parse(savedWorkflows));
+        const resp = await fetch('/api/workflows');
+        const json = await resp.json();
+        setWorkflows(json.workflows || []);
       } catch {}
-    }
+    })();
   }, [router]);
 
-  const handleCreateWorkflow = () => {
+  const handleCreateWorkflow = async () => {
     if (!newWorkflowName.trim()) return;
-
-    const newWorkflow: Workflow = {
-      id: `workflow-${Date.now()}`,
-      name: newWorkflowName,
-      description: newWorkflowDescription,
-      status: "draft",
-      integrations: [],
-      lastEdited: "Just now"
-    };
-
-    const updatedWorkflows = [newWorkflow, ...workflows];
-    setWorkflows(updatedWorkflows);
-    localStorage.setItem("saku_workflows", JSON.stringify(updatedWorkflows));
-
-    // Reset form and close modal
-    setNewWorkflowName("");
-    setNewWorkflowDescription("");
-    setShowCreateModal(false);
-
-    // Navigate to workflow builder
-    router.push(`/workflows/${newWorkflow.id}/builder`);
+    try {
+      const resp = await fetch('/api/workflows', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newWorkflowName, description: newWorkflowDescription }) });
+      const json = await resp.json();
+      if (json?.ok && json?.workflow) {
+        setWorkflows((w) => [json.workflow, ...w]);
+        setNewWorkflowName("");
+        setNewWorkflowDescription("");
+        setShowCreateModal(false);
+        router.push(`/workflows/${json.workflow.id}/builder`);
+      }
+    } catch {}
   };
 
   const handleUseTemplate = (template: WorkflowTemplate) => {
