@@ -7,7 +7,7 @@ export default function Home() {
         </div>
         <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-3">Meet Saku AI</h1>
         <p className="text-neutral-600 mb-6">Your proactive AI assistant that works seamlessly across all your apps and workflows.</p>
-        <a href="/onboarding" className="inline-block bg-black text-white rounded px-4 py-2">Get Started</a>
+        <a href="/login" className="inline-block bg-black text-white rounded px-4 py-2">Get Started</a>
       </div>
     </main>
   );

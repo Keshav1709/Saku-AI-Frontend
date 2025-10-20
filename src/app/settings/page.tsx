@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useSession, signOut } from "next-auth/react";
 import Image from "next/image";
 import { MainSidebar } from "@/components/MainSidebar";
 
@@ -17,19 +18,20 @@ type Integration = {
 
 export default function SettingsPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const [profileData, setProfileData] = useState({
-    firstName: "Romeo",
-    lastName: "Saha",
+    name: "",
+    email: "",
     jobTitle: "",
     role: "",
     department: "",
-    primaryEmail: "",
     language: "English",
-    preferenceEmail: "Romeosahal2@gmail.com"
   });
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [loading, setLoading] = useState(false);
@@ -58,51 +60,15 @@ export default function SettingsPage() {
   });
 
   useEffect(() => {
-    const token = localStorage.getItem("saku_auth");
-    if (!token) router.replace("/login");
-
-    // Check for OAuth callback parameters
-    const urlParams = new URLSearchParams(window.location.search);
-    const error = urlParams.get('error');
-    const connected = urlParams.get('connected');
-    const state = urlParams.get('state');
+    if (status === "loading") return;
     
-    if (error) {
-      console.log('DEBUG: OAuth error detected:', error);
-      setDebugInfo({
-        type: 'error',
-        message: `OAuth Error: ${error}`,
-        state: state,
-        timestamp: new Date().toISOString()
-      });
-      // Clear URL parameters
-      window.history.replaceState({}, document.title, window.location.pathname);
-    } else if (connected) {
-      console.log('DEBUG: OAuth success detected:', connected);
-      setDebugInfo({
-        type: 'success',
-        message: `Successfully connected to ${connected}`,
-        state: state,
-        timestamp: new Date().toISOString()
-      });
-      // Clear URL parameters
-      window.history.replaceState({}, document.title, window.location.pathname);
+    if (!session) {
+      router.replace("/login");
+      return;
     }
 
-    // Load saved profile data
-    const saved = localStorage.getItem("saku_profile");
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        setProfileData(data);
-      } catch {}
-    }
-
-    // Load profile photo
-    const savedPhoto = localStorage.getItem("saku_profile_photo");
-    if (savedPhoto) {
-      setProfilePhoto(savedPhoto);
-    }
+    // Load user data from database
+    loadProfileData();
 
     // Load monitoring settings
     const savedMonitoring = localStorage.getItem("saku_monitoring");
@@ -133,29 +99,76 @@ export default function SettingsPage() {
 
     // Load integrations
     loadIntegrations();
-  }, [router]);
+  }, [session, status, router]);
 
-  const loadIntegrations = async () => {
+  const loadProfileData = async () => {
     try {
-      console.log('DEBUG: Loading integrations...');
-      const response = await fetch('/api/connectors');
-      console.log('DEBUG: Response status:', response.status);
-      const data = await response.json();
-      console.log('DEBUG: Response data:', data);
-      if (data.connectors) {
-        const formattedIntegrations = data.connectors.map((connector: any) => ({
-          id: connector.key,
-          name: connector.name,
-          description: getIntegrationDescription(connector.key),
-          icon: getIntegrationIcon(connector.key),
-          connected: connector.connected
-        }));
-        console.log('DEBUG: Formatted integrations:', formattedIntegrations);
-        setIntegrations(formattedIntegrations);
+      const response = await fetch('/api/user/profile');
+      if (response.ok) {
+        const data = await response.json();
+        const user = data.user;
+        
+        setProfileData({
+          name: user.name || "",
+          email: user.email || "",
+          jobTitle: "",
+          role: "",
+          department: "",
+          language: "English",
+        });
+        
+        if (user.avatar) {
+          setProfilePhoto(user.avatar);
+        }
+      } else {
+        console.error('Failed to load profile data');
+        // Fallback to session data
+        if (session?.user) {
+          setProfileData({
+            name: session.user.name || "",
+            email: session.user.email || "",
+            jobTitle: "",
+            role: "",
+            department: "",
+            language: "English",
+          });
+          
+          if (session.user.image) {
+            setProfilePhoto(session.user.image);
+          }
+        }
       }
     } catch (error) {
-      console.error('Failed to load integrations:', error);
+      console.error('Error loading profile data:', error);
+      // Fallback to session data
+      if (session?.user) {
+        setProfileData({
+          name: session.user.name || "",
+          email: session.user.email || "",
+          jobTitle: "",
+          role: "",
+          department: "",
+          language: "English",
+        });
+        
+        if (session.user.image) {
+          setProfilePhoto(session.user.image);
+        }
+      }
     }
+  };
+
+  const loadIntegrations = async () => {
+    // Mock integrations data - OAuth logic moved to external location
+    const mockIntegrations = [
+      { id: 'gmail', name: 'Gmail', description: 'Access your Gmail messages and data', icon: '📧', connected: false },
+      { id: 'drive', name: 'Google Drive', description: 'Access your Google Drive files and folders', icon: '📁', connected: false },
+      { id: 'calendar', name: 'Google Calendar', description: 'Access your Google Calendar events', icon: '📅', connected: false },
+      { id: 'slack', name: 'Slack', description: 'Connect to your Slack workspace', icon: '💬', connected: false },
+      { id: 'notion', name: 'Notion', description: 'Access your Notion workspace', icon: '📝', connected: false },
+      { id: 'discord', name: 'Discord', description: 'Connect to Discord servers', icon: '🎮', connected: false }
+    ];
+    setIntegrations(mockIntegrations);
   };
 
   const getIntegrationDescription = (key: string) => {
@@ -183,60 +196,12 @@ export default function SettingsPage() {
   };
 
   const testConnection = async (serviceType: string) => {
-    console.log('DEBUG: Testing connection for:', serviceType);
-    setConnectionStatus(prev => ({ ...prev, [serviceType]: 'testing' }));
-    
-    try {
-      const response = await fetch(`/api/integrations?service=${serviceType}&type=${serviceType === 'gmail' ? 'messages' : serviceType === 'drive' ? 'files' : 'events'}&maxResults=5`);
-      const data = await response.json();
-      
-      console.log('DEBUG: Test response:', response.status, data);
-      
-      if (response.ok) {
-        const itemCount = serviceType === 'gmail' ? data.messages?.length || 0 :
-                         serviceType === 'drive' ? data.files?.length || 0 :
-                         serviceType === 'calendar' ? data.events?.length || 0 : 0;
-        
-        if (itemCount > 0) {
-          setConnectionStatus(prev => ({ 
-            ...prev, 
-            [serviceType]: `connected (${itemCount} items fetched)` 
-          }));
-          
-          setFetchedData(prev => ({ ...prev, [serviceType]: data }));
-          
-          setDebugInfo({
-            type: 'success',
-            message: `Successfully fetched ${itemCount} ${serviceType} items`,
-            data: data,
-            timestamp: new Date().toISOString()
-          });
-        } else {
-          setConnectionStatus(prev => ({ ...prev, [serviceType]: 'no_data' }));
-          setDebugInfo({
-            type: 'warning',
-            message: `Connected to ${serviceType} but no data found. Check if you have permissions or data in your account.`,
-            data: data,
-            timestamp: new Date().toISOString()
-          });
-        }
-      } else {
-        setConnectionStatus(prev => ({ ...prev, [serviceType]: 'error' }));
-        setDebugInfo({
-          type: 'error',
-          message: `Failed to fetch ${serviceType} data: ${data.error || 'Unknown error'}`,
-          timestamp: new Date().toISOString()
-        });
-      }
-    } catch (error) {
-      console.error('Connection test failed:', error);
-      setConnectionStatus(prev => ({ ...prev, [serviceType]: 'error' }));
-      setDebugInfo({
-        type: 'error',
-        message: `Connection test failed: ${error}`,
-        timestamp: new Date().toISOString()
-      });
-    }
+    // OAuth logic moved to external location - show placeholder message
+    setDebugInfo({
+      type: 'info',
+      message: `Integration testing for ${serviceType} - OAuth logic moved to external location`,
+      timestamp: new Date().toISOString()
+    });
   };
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -264,97 +229,62 @@ export default function SettingsPage() {
   };
 
   const handleInputChange = (field: keyof typeof profileData, value: string) => {
-    setProfileData(prev => {
-      const updated = { ...prev, [field]: value };
-      // Auto-save
-      setTimeout(() => {
-        localStorage.setItem("saku_profile", JSON.stringify(updated));
-        // Dispatch custom event for real-time updates within the same tab
-        window.dispatchEvent(new CustomEvent('profileUpdated', { detail: updated }));
-      }, 500);
-      return updated;
-    });
+    setProfileData(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
-  const handleSaveChanges = () => {
-    localStorage.setItem("saku_profile", JSON.stringify(profileData));
-    alert("Changes saved successfully!");
-  };
-
-  const handleCancel = () => {
-    const saved = localStorage.getItem("saku_profile");
-    if (saved) {
-      setProfileData(JSON.parse(saved));
+  const handleSaveChanges = async () => {
+    if (!session?.user?.email) return;
+    
+    setIsLoading(true);
+    setMessage(null);
+    
+    try {
+      const response = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: session.user.email,
+          name: profileData.name,
+          avatar: profilePhoto,
+        }),
+      });
+      
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Profile updated successfully!' });
+        // Reload profile data from database
+        await loadProfileData();
+      } else {
+        throw new Error('Failed to update profile');
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to update profile. Please try again.' });
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  const handleCancel = async () => {
+    // Reload profile data from database to cancel changes
+    await loadProfileData();
+    setMessage(null);
+  };
+
+  const handleSignOut = async () => {
+    await signOut({ callbackUrl: '/login' });
   };
 
   const toggleIntegration = async (id: string) => {
-    console.log('DEBUG: Toggle integration called for:', id);
-    setLoading(true);
-    try {
-      const integration = integrations.find(int => int.id === id);
-      console.log('DEBUG: Found integration:', integration);
-      if (!integration) return;
-
-      if (integration.connected) {
-        console.log('DEBUG: Disconnecting integration...');
-        // Disconnect integration
-        const response = await fetch('/api/integrations', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            action: 'disconnect',
-            service_type: id
-          }),
-        });
-
-        if (response.ok) {
-          setIntegrations(prev => prev.map(int => 
-            int.id === id ? { ...int, connected: false } : int
-          ));
-        }
-      } else {
-        console.log('DEBUG: Connecting integration...');
-        // Connect integration - handle Google OAuth
-        if (['gmail', 'drive', 'calendar'].includes(id)) {
-          console.log('DEBUG: Google service detected, getting auth URL...');
-          const authResponse = await fetch(`/api/connectors/auth-url?key=${id}`);
-          console.log('DEBUG: Auth response status:', authResponse.status);
-          const authData = await authResponse.json();
-          console.log('DEBUG: Auth data:', authData);
-          
-          if (authData.url) {
-            console.log('DEBUG: Redirecting to:', authData.url);
-            // Redirect to Google OAuth
-            window.location.href = authData.url;
-          } else {
-            console.log('DEBUG: No auth URL received');
-          }
-        } else {
-          // For non-Google services, just toggle the state
-          const response = await fetch('/api/connectors', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ key: id }),
-          });
-
-          if (response.ok) {
-            const result = await response.json();
-            setIntegrations(prev => prev.map(int => 
-              int.id === id ? { ...int, connected: result.connector?.connected || false } : int
-            ));
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Failed to toggle integration:', error);
-    } finally {
-      setLoading(false);
-    }
+    // OAuth logic moved to external location - show placeholder message
+    setDebugInfo({
+      type: 'info',
+      message: `Integration toggle for ${id} - OAuth logic moved to external location`,
+      timestamp: new Date().toISOString()
+    });
   };
 
   const toggleMonitoring = (setting: keyof typeof monitoringSettings) => {
@@ -490,28 +420,16 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  {/* First Name & Last Name */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-1.5">First Name</label>
-                      <input
-                        type="text"
-                        value={profileData.firstName}
-                        onChange={(e) => handleInputChange("firstName", e.target.value)}
-                        className="w-full border border-neutral-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/10"
-                        placeholder="First Name"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-1.5">Last Name</label>
-                      <input
-                        type="text"
-                        value={profileData.lastName}
-                        onChange={(e) => handleInputChange("lastName", e.target.value)}
-                        className="w-full border border-neutral-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/10"
-                        placeholder="Last Name"
-                      />
-                    </div>
+                  {/* Display Name */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium mb-1.5">Display Name</label>
+                    <input
+                      type="text"
+                      value={profileData.name}
+                      onChange={(e) => handleInputChange("name", e.target.value)}
+                      className="w-full border border-neutral-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/10"
+                      placeholder="Your Name"
+                    />
                   </div>
 
                   {/* Job Title */}
@@ -577,16 +495,14 @@ export default function SettingsPage() {
                     <div className="relative">
                       <input
                         type="email"
-                        value={profileData.primaryEmail}
-                        onChange={(e) => handleInputChange("primaryEmail", e.target.value)}
-                        className="w-full border border-neutral-300 rounded px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-black/10"
-                        placeholder="e.g : Romeosahal2@gmail.com"
+                        value={profileData.email}
+                        disabled
+                        className="w-full border border-neutral-300 rounded px-3 py-2 pr-10 text-sm bg-neutral-50 text-neutral-500 cursor-not-allowed"
+                        placeholder="Your email address"
                       />
-                      <button className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                        </svg>
-                      </button>
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-500">
+                        (from Google)
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -629,21 +545,42 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
+                {/* Message Display */}
+                {message && (
+                  <div className={`mb-4 p-3 rounded text-sm ${
+                    message.type === 'success' 
+                      ? 'bg-green-50 text-green-700 border border-green-200' 
+                      : 'bg-red-50 text-red-700 border border-red-200'
+                  }`}>
+                    {message.text}
+                  </div>
+                )}
+
                 {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-6 border-t">
-                  <p className="text-xs text-neutral-500">Changes will be saved automatically</p>
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs text-neutral-500">Update your profile information</p>
+                    <button
+                      onClick={handleSignOut}
+                      className="text-xs text-red-600 hover:text-red-700 transition-colors"
+                    >
+                      Sign Out
+                    </button>
+                  </div>
                   <div className="flex gap-3">
                     <button
                       onClick={handleCancel}
-                      className="px-4 py-2 border border-neutral-300 rounded text-sm hover:bg-neutral-50 transition-colors"
+                      disabled={isLoading}
+                      className="px-4 py-2 border border-neutral-300 rounded text-sm hover:bg-neutral-50 transition-colors disabled:opacity-50"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleSaveChanges}
-                      className="px-4 py-2 bg-black text-white rounded text-sm hover:bg-black/90 transition-colors"
+                      disabled={isLoading}
+                      className="px-4 py-2 bg-black text-white rounded text-sm hover:bg-black/90 transition-colors disabled:opacity-50"
                     >
-                      Save Changes
+                      {isLoading ? 'Saving...' : 'Save Changes'}
                     </button>
                   </div>
                 </div>
