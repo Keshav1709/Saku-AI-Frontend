@@ -1,7 +1,8 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import Image from "next/image";
 
 type Conversation = { id: string; title?: string; createdAt?: string };
@@ -20,13 +21,19 @@ type ProfileData = {
 export function MainSidebar({ 
   onNew, 
   onSelect, 
-  selectedId 
+  selectedId,
+  isCollapsed = false,
+  onToggle
 }: { 
   onNew?: () => void; 
   onSelect?: (id: string) => void; 
-  selectedId?: string | null 
+  selectedId?: string | null;
+  isCollapsed?: boolean;
+  onToggle?: () => void;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { data: session } = useSession();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [profileData, setProfileData] = useState<ProfileData>({
     firstName: "Romeo",
@@ -39,6 +46,46 @@ export function MainSidebar({
     preferenceEmail: "Romeosahal2@gmail.com"
   });
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
+
+  const fetchProfileData = async () => {
+    if (!session?.user?.email) return;
+    
+    try {
+      const response = await fetch('/api/user/profile');
+      if (response.ok) {
+        const data = await response.json();
+        const user = data.user;
+        
+        // Extract first and last name from the full name
+        const nameParts = user.name ? user.name.split(' ') : ['', ''];
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+        
+        const newProfileData = {
+          firstName,
+          lastName,
+          jobTitle: "",
+          role: "",
+          department: "",
+          primaryEmail: user.email || "",
+          language: "English",
+          preferenceEmail: user.email || ""
+        };
+        
+        setProfileData(newProfileData);
+        
+        // Update localStorage for consistency
+        localStorage.setItem("saku_profile", JSON.stringify(newProfileData));
+        
+        if (user.avatar) {
+          setProfilePhoto(user.avatar);
+          localStorage.setItem("saku_profile_photo", user.avatar);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch profile data:', error);
+    }
+  };
 
   useEffect(() => {
     // Load conversations from backend minimal index if available, fallback localStorage
@@ -55,21 +102,25 @@ export function MainSidebar({
       }
     })();
 
-    // Load profile data from localStorage
-    const savedProfile = localStorage.getItem("saku_profile");
-    if (savedProfile) {
-      try {
-        const data = JSON.parse(savedProfile);
-        setProfileData(data);
-      } catch (error) {
-        console.error("Failed to parse profile data:", error);
+    // Fetch profile data from API when session is available
+    if (session) {
+      fetchProfileData();
+    } else {
+      // Fallback to localStorage if no session
+      const savedProfile = localStorage.getItem("saku_profile");
+      if (savedProfile) {
+        try {
+          const data = JSON.parse(savedProfile);
+          setProfileData(data);
+        } catch (error) {
+          console.error("Failed to parse profile data:", error);
+        }
       }
-    }
 
-    // Load profile photo from localStorage
-    const savedPhoto = localStorage.getItem("saku_profile_photo");
-    if (savedPhoto) {
-      setProfilePhoto(savedPhoto);
+      const savedPhoto = localStorage.getItem("saku_profile_photo");
+      if (savedPhoto) {
+        setProfilePhoto(savedPhoto);
+      }
     }
 
     // Listen for storage changes to update profile in real-time
@@ -96,21 +147,34 @@ export function MainSidebar({
       setProfilePhoto(e.detail);
     };
 
+    // Listen for profile refresh events
+    const handleProfileRefresh = () => {
+      if (session) {
+        fetchProfileData();
+      }
+    };
+
     window.addEventListener("storage", handleStorageChange);
     window.addEventListener("profileUpdated", handleProfileUpdate as EventListener);
     window.addEventListener("profilePhotoUpdated", handlePhotoUpdate as EventListener);
+    window.addEventListener("profileRefresh", handleProfileRefresh as EventListener);
 
     return () => {
       window.removeEventListener("storage", handleStorageChange);
       window.removeEventListener("profileUpdated", handleProfileUpdate as EventListener);
       window.removeEventListener("profilePhotoUpdated", handlePhotoUpdate as EventListener);
+      window.removeEventListener("profileRefresh", handleProfileRefresh as EventListener);
     };
-  }, []);
+  }, [session]);
+
+  const handleProfileClick = () => {
+    router.push('/settings');
+  };
 
   const navItems = [
     {
       href: "/dashboard",
-      label: "Home",
+      label: "Dashboard",
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -166,90 +230,100 @@ export function MainSidebar({
   ];
 
   return (
-    <aside className="w-64 bg-white border-r min-h-screen p-4">
-      {/* Logo */}
-      <div className="flex items-center gap-2 mb-6">
-        <div className="w-8 h-8 bg-black rounded flex items-center justify-center">
-          <span className="text-white font-bold text-sm">S</span>
+    <aside className={`${isCollapsed ? 'w-16' : 'w-64'} bg-white border-r min-h-screen p-4 transition-all duration-300`}>
+      {/* Logo and Toggle Button */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-black rounded flex items-center justify-center">
+            <span className="text-white font-bold text-sm">S</span>
+          </div>
+          {!isCollapsed && <span className="font-semibold text-black">SakuAI</span>}
         </div>
-        <span className="font-semibold text-black">SakuAI</span>
+        {onToggle && (
+          <button
+            onClick={onToggle}
+            className="p-1 hover:bg-gray-100 rounded transition-colors"
+            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isCollapsed ? "M9 5l7 7-7 7" : "M15 19l-7-7 7-7"} />
+            </svg>
+          </button>
+        )}
       </div>
 
-      {/* Workspace Selector */}
-      <div className="mb-6">
-        <div className="flex items-center gap-2 text-sm text-black">
-          <span className="w-6 h-6 bg-neutral-200 rounded-full flex items-center justify-center text-xs font-medium">P</span>
-          <span>My Workspace</span>
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
-      </div>
 
       {/* Navigation */}
       <nav className="space-y-1 mb-8">
-        {navItems.map((item) => {
+        {navItems.map((item, index) => {
           const isActive = pathname === item.href || 
             (item.href !== "#" && pathname.startsWith(item.href));
           
           return (
             <a
-              key={item.href}
+              key={`${item.href}-${index}`}
               href={item.href}
               className={`flex items-center gap-3 px-3 py-2 text-sm rounded transition-colors ${
                 isActive
                   ? "text-white bg-black"
                   : "text-black hover:bg-neutral-50"
-              }`}
+              } ${isCollapsed ? 'justify-center' : ''}`}
+              title={isCollapsed ? item.label : undefined}
             >
               {item.icon}
-              {item.label}
+              {!isCollapsed && item.label}
             </a>
           );
         })}
       </nav>
 
       {/* Chats Section */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <div className="text-xs font-medium text-black">Chats</div>
-          {onNew && (
-            <button 
-              onClick={onNew}
-              className="w-6 h-6 bg-black text-white rounded flex items-center justify-center hover:bg-black/90 transition-colors"
-            >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-            </button>
-          )}
-        </div>
-        <div className="space-y-1 max-h-64 overflow-y-auto">
-          {conversations.length === 0 ? (
-            <div className="text-xs text-neutral-600 py-2">No conversations</div>
-          ) : (
-            conversations.map((conversation) => (
-              <button
-                key={conversation.id}
-                onClick={() => onSelect?.(conversation.id)}
-                className={`w-full text-left px-2 py-2 rounded text-xs transition-colors ${
-                  selectedId === conversation.id 
-                    ? "bg-black text-white" 
-                    : "text-black hover:bg-neutral-100"
-                }`}
+      {!isCollapsed && (
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-xs font-medium text-black">Chats</div>
+            {onNew && (
+              <button 
+                onClick={onNew}
+                className="w-6 h-6 bg-black text-white rounded flex items-center justify-center hover:bg-black/90 transition-colors"
               >
-                <div className="truncate font-medium">{conversation.title}</div>
-                <div className="text-xs opacity-70 mt-0.5">
-                  {new Date(conversation.createdAt).toLocaleDateString()}
-                </div>
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
               </button>
-            ))
-          )}
+            )}
+          </div>
+          <div className="space-y-1 max-h-64 overflow-y-auto">
+            {conversations.length === 0 ? (
+              <div className="text-xs text-neutral-600 py-2">No conversations</div>
+            ) : (
+              conversations.map((conversation) => (
+                <button
+                  key={conversation.id}
+                  onClick={() => onSelect?.(conversation.id)}
+                  className={`w-full text-left px-2 py-2 rounded text-xs transition-colors ${
+                    selectedId === conversation.id 
+                      ? "bg-black text-white" 
+                      : "text-black hover:bg-neutral-100"
+                  }`}
+                >
+                  <div className="truncate font-medium">{conversation.title}</div>
+                  <div className="text-xs opacity-70 mt-0.5">
+                    {new Date(conversation.createdAt).toLocaleDateString()}
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* User Profile */}
-      <div className="flex items-center gap-3 p-2 hover:bg-neutral-50 rounded cursor-pointer">
+      <button 
+        onClick={handleProfileClick}
+        className={`w-full flex items-center gap-3 p-2 hover:bg-neutral-50 rounded cursor-pointer transition-colors ${isCollapsed ? 'justify-center' : ''}`}
+        title={isCollapsed ? `${profileData.firstName} ${profileData.lastName}` : undefined}
+      >
         <div className="w-8 h-8 bg-neutral-200 rounded-full flex items-center justify-center overflow-hidden">
           {profilePhoto ? (
             <Image
@@ -265,21 +339,25 @@ export function MainSidebar({
             </svg>
           )}
         </div>
-        <div className="flex-1">
-          <div className="text-sm font-medium text-black">
-            {profileData.firstName && profileData.lastName 
-              ? `${profileData.firstName} ${profileData.lastName}` 
-              : profileData.firstName || "User"
-            }
-          </div>
-          <div className="text-xs text-black">
-            {profileData.primaryEmail || profileData.preferenceEmail || "No email"}
-          </div>
-        </div>
-        <svg className="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
-      </div>
+        {!isCollapsed && (
+          <>
+            <div className="flex-1 text-left">
+              <div className="text-sm font-medium text-black">
+                {profileData.firstName && profileData.lastName 
+                  ? `${profileData.firstName} ${profileData.lastName}` 
+                  : profileData.firstName || "User"
+                }
+              </div>
+              <div className="text-xs text-black">
+                {profileData.primaryEmail || profileData.preferenceEmail || "No email"}
+              </div>
+            </div>
+            <svg className="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </>
+        )}
+      </button>
     </aside>
   );
 }

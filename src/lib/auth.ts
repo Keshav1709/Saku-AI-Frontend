@@ -14,7 +14,7 @@ if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
 // Custom Prisma adapter that maps image to avatar
 const customPrismaAdapter = {
   ...PrismaAdapter(prisma),
-  async createUser(user) {
+  async createUser(user: any) {
     // Map image to avatar for our custom schema
     const userData = {
       ...user,
@@ -33,6 +33,18 @@ export const authOptions: NextAuthOptions = {
   providers: [GoogleProvider({
     clientId: process.env.GOOGLE_CLIENT_ID!,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    authorization: {
+      params: {
+        scope: [
+          'openid', 'email', 'profile',
+          'https://www.googleapis.com/auth/gmail.readonly',
+          'https://www.googleapis.com/auth/drive.readonly',
+          'https://www.googleapis.com/auth/calendar.readonly',
+          'https://www.googleapis.com/auth/calendar.events',
+          'https://www.googleapis.com/auth/tasks'
+        ].join(' ')
+      }
+    }
   })],
   session: {
     strategy: 'jwt',
@@ -50,7 +62,9 @@ export const authOptions: NextAuthOptions = {
       if (session.user && token) {
         session.user.id = token.sub as string
         // Map avatar back to image for the session
-        session.user.image = (token as any).avatar || session.user.image
+        session.user.image = (token as any).avatar || session.user.image;
+        // Add access token to session for API calls
+        (session as any).accessToken = (token as any).accessToken;
       }
       return session
     },
@@ -60,6 +74,10 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id
         // Map image to avatar for our custom schema
         token.avatar = user.image
+      }
+      // Store access token for API calls
+      if (account?.access_token) {
+        token.accessToken = account.access_token
       }
       return token
     },

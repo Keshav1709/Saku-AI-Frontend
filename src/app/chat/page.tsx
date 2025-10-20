@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { MainSidebar } from "@/components/MainSidebar";
 import Image from "next/image";
+import { useSession } from "next-auth/react";
 
 export default function ChatPage() {
   function renderMarkdownToHtml(text: string) {
@@ -49,12 +50,34 @@ export default function ChatPage() {
     return html.join("\n");
   }
   const router = useRouter();
+  const { data: session } = useSession();
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string; citations?: any[] }[]>([]);
   const [input, setInput] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
   const [sessionId, setSessionId] = useState<string>(() => "");
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [showWelcome, setShowWelcome] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [profileData, setProfileData] = useState<{
+    firstName: string;
+    lastName: string;
+    jobTitle: string;
+    role: string;
+    department: string;
+    primaryEmail: string;
+    language: string;
+    preferenceEmail: string;
+  }>({
+    firstName: "Romeo",
+    lastName: "Saha",
+    jobTitle: "",
+    role: "",
+    department: "",
+    primaryEmail: "",
+    language: "",
+    preferenceEmail: ""
+  });
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("saku_auth");
@@ -74,6 +97,50 @@ export default function ChatPage() {
       }
     })();
   }, [router]);
+
+  // Fetch profile data
+  const fetchProfileData = async () => {
+    if (!session?.user?.email) return;
+    
+    try {
+      const response = await fetch('/api/user/profile', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const userData = await response.json();
+        const nameParts = userData.name ? userData.name.split(' ') : ['', ''];
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+        
+        setProfileData({
+          firstName,
+          lastName,
+          jobTitle: userData.jobTitle || "",
+          role: userData.role || "",
+          department: userData.department || "",
+          primaryEmail: userData.email || session.user.email || "",
+          language: userData.language || "",
+          preferenceEmail: userData.preferenceEmail || ""
+        });
+        
+        if (userData.avatar) {
+          setProfilePhoto(userData.avatar);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching profile data:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (session?.user?.email) {
+      fetchProfileData();
+    }
+  }, [session]);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
@@ -182,9 +249,11 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white flex">
+    <div className="h-screen bg-white flex overflow-hidden">
       <MainSidebar
         selectedId={sessionId}
+        isCollapsed={sidebarCollapsed}
+        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
         onNew={() => {
           setSessionId(crypto.randomUUID());
           setMessages([]);
@@ -199,7 +268,7 @@ export default function ChatPage() {
           } catch {}
         }}
       />
-      <main className="flex-1 flex flex-col bg-white">
+      <main className="flex-1 flex flex-col bg-white overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
@@ -228,10 +297,10 @@ export default function ChatPage() {
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col overflow-hidden">
           {showWelcome ? (
             /* Welcome Section */
-            <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+            <div className="flex-1 flex flex-col items-center justify-center px-6 py-4 overflow-y-auto">
               {/* SakuAI Logo */}
               <div className="w-24 h-24 bg-black rounded-full flex items-center justify-center mb-8">
                 <span className="text-white font-bold text-3xl">S</span>
@@ -320,7 +389,7 @@ export default function ChatPage() {
             </div>
           ) : (
             /* Chat Messages */
-            <div ref={listRef} className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div ref={listRef} className="flex-1 overflow-y-auto px-6 py-4 space-y-4 min-h-0">
               {messages.map((m, i) => (
                 <div key={i} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
                   <div className={`max-w-[75%] rounded-lg px-4 py-3 ${
@@ -354,7 +423,7 @@ export default function ChatPage() {
           )}
 
           {/* Input Area */}
-          <div className="p-6 border-t border-gray-200 bg-white">
+          <div className="px-6 py-4 border-t border-gray-200 bg-white">
             {/* Uploaded Files Display */}
             {uploadedFiles.length > 0 && (
               <div className="mb-4 flex flex-wrap gap-2">
@@ -378,12 +447,21 @@ export default function ChatPage() {
             )}
 
             <div className="flex items-center gap-3">
-              {/* AI Model Indicator */}
-              <div className="flex items-center gap-2 px-2 py-1 border rounded text-xs text-neutral-600 bg-white">
-                <span className="inline-flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                  Streaming
-                </span>
+              {/* AI Model Indicator - Show Profile Picture */}
+              <div className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden">
+                {profilePhoto ? (
+                  <Image
+                    src={profilePhoto}
+                    alt="Profile"
+                    width={32}
+                    height={32}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                    {profileData.firstName ? profileData.firstName.charAt(0).toUpperCase() : 'U'}
+                  </div>
+                )}
               </div>
 
               {/* Input Field */}

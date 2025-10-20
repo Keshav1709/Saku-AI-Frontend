@@ -16,8 +16,32 @@ export default function IntegrationsPage() {
 
   const fetchData = async (service: string, type: string) => {
     setLoading(true);
-    // OAuth logic moved to external location - show placeholder data
-    setTimeout(() => {
+    try {
+      const response = await fetch(`/api/integrations/${service}`);
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        if (service === 'gmail') {
+          setData(prev => ({ ...prev, messages: result.messages || [] }));
+        } else if (service === 'drive') {
+          setData(prev => ({ ...prev, files: result.files || [] }));
+        } else if (service === 'calendar') {
+          setData(prev => ({ ...prev, events: result.events || [] }));
+        }
+      } else {
+        console.error(`Failed to fetch ${service} data:`, result.error);
+        // Set empty data on error
+        if (service === 'gmail') {
+          setData(prev => ({ ...prev, messages: [] }));
+        } else if (service === 'drive') {
+          setData(prev => ({ ...prev, files: [] }));
+        } else if (service === 'calendar') {
+          setData(prev => ({ ...prev, events: [] }));
+        }
+      }
+    } catch (error) {
+      console.error(`Error fetching ${service} data:`, error);
+      // Set empty data on error
       if (service === 'gmail') {
         setData(prev => ({ ...prev, messages: [] }));
       } else if (service === 'drive') {
@@ -25,8 +49,9 @@ export default function IntegrationsPage() {
       } else if (service === 'calendar') {
         setData(prev => ({ ...prev, events: [] }));
       }
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   useEffect(() => {
@@ -96,7 +121,7 @@ export default function IntegrationsPage() {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-gray-500">No Gmail messages found. OAuth logic moved to external location.</p>
+                      <p className="text-gray-500">No Gmail messages found. Make sure you're authenticated and have granted Gmail permissions.</p>
                     )}
                   </div>
                 )}
@@ -125,7 +150,7 @@ export default function IntegrationsPage() {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-gray-500">No Google Drive files found. OAuth logic moved to external location.</p>
+                      <p className="text-gray-500">No Google Drive files found. Make sure you're authenticated and have granted Drive permissions.</p>
                     )}
                   </div>
                 )}
@@ -158,7 +183,7 @@ export default function IntegrationsPage() {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-gray-500">No calendar events found. OAuth logic moved to external location.</p>
+                      <p className="text-gray-500">No calendar events found. Make sure you're authenticated and have granted Calendar permissions.</p>
                     )}
                   </div>
                 )}
