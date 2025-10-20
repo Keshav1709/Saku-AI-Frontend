@@ -252,18 +252,6 @@ export function MainSidebar({
         )}
       </div>
 
-      {/* Workspace Selector */}
-      {!isCollapsed && (
-        <div className="mb-6">
-          <div className="flex items-center gap-2 text-sm text-black">
-            <span className="w-6 h-6 bg-neutral-200 rounded-full flex items-center justify-center text-xs font-medium">P</span>
-            <span>My Workspace</span>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
-        </div>
-      )}
 
       {/* Navigation */}
       <nav className="space-y-1 mb-8">
