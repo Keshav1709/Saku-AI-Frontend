@@ -24,10 +24,11 @@
 ---
 
 ## Meetings Frontend Plan (Detailed)
-- F1: Recording upload control on detail page [done]; show processing state; poll insights [pending polling].
-- F2: Notes tab: show Summary/Chapters/Highlights panels when insights present [pending rich components].
-- F3: Agenda tab: editable list with reorder and link to timestamps [pending].
-- F4: Action tab: add-to-calendar, assignee/due inputs with backend integration [pending].
+- F1: Recording upload (list + detail) [done via BFF server upload]; add polling and progress states [pending].
+- F2: Notes tab: render Summary now; add Chapters/Highlights panels with timestamps [pending].
+- F3: Agenda tab: editable, reorder, link to transcript spans [pending].
+- F4: Action tab: Add-to-Calendar and assignee/due UX [pending].
+- F5: Row-level Upload menu and per-row status pill [pending].
 
 ### Phase D — Integrations Surface (Gmail/Drive/Calendar + others)
 - Unify integrations data page with filters, pagination, search; export to chat context; pin as sources.

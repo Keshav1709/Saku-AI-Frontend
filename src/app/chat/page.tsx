@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { MainSidebar } from "@/components/MainSidebar";
 import Image from "next/image";
-import { useSession } from "next-auth/react";
 
 export default function ChatPage() {
   function renderMarkdownToHtml(text: string) {
@@ -50,7 +49,6 @@ export default function ChatPage() {
     return html.join("\n");
   }
   const router = useRouter();
-  const { data: session } = useSession();
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string; citations?: any[] }[]>([]);
   const [input, setInput] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -100,8 +98,6 @@ export default function ChatPage() {
 
   // Fetch profile data
   const fetchProfileData = async () => {
-    if (!session?.user?.email) return;
-    
     try {
       const response = await fetch('/api/user/profile', {
         method: 'GET',
@@ -122,7 +118,7 @@ export default function ChatPage() {
           jobTitle: userData.jobTitle || "",
           role: userData.role || "",
           department: userData.department || "",
-          primaryEmail: userData.email || session.user.email || "",
+          primaryEmail: userData.email || "",
           language: userData.language || "",
           preferenceEmail: userData.preferenceEmail || ""
         });
@@ -137,10 +133,8 @@ export default function ChatPage() {
   };
 
   useEffect(() => {
-    if (session?.user?.email) {
-      fetchProfileData();
-    }
-  }, [session]);
+    fetchProfileData();
+  }, []);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });

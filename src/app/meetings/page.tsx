@@ -146,11 +146,11 @@ export default function MeetingsPage() {
                       alert('Select a meeting first.');
                       return;
                     }
-                    // Prefer sending as multipart, but if it fails, fallback to raw body
+                    // Send as multipart; server will handle fallback
                     const fd = new FormData();
                     fd.set('file', f);
                     const resp = await fetch(`/api/meetings/${targetId}/upload`, { method: 'POST', body: fd });
-                    if (!resp.ok) throw new Error(await resp.text());
+                    if (!resp.ok) throw new Error(`upload_failed:${resp.status}`);
                     refresh();
                   } catch (e) {
                     console.error('Upload failed', e);
