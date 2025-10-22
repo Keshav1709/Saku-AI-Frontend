@@ -9,12 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
-<<<<<<< HEAD
     "@next-auth/prisma-adapter": "^1.0.7",
     "@prisma/client": "6.17.1",
-=======
     "@hookform/resolvers": "^5.2.2",
-    "@prisma/client": "^6.17.1",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-aspect-ratio": "^1.1.7",
@@ -58,16 +55,14 @@
     "inngest": "^3.44.3",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.546.0",
->>>>>>> fork/01--Authentication
+
     "next": "15.5.6",
     "next-themes": "^0.4.6",
     "react": "19.1.0",
     "react-day-picker": "^9.11.1",
     "react-dom": "19.1.0",
-<<<<<<< HEAD
-=======
     "react-hook-form": "^7.65.0",
->>>>>>> fork/01--Authentication
+
     "react-markdown": "^9.0.3",
     "react-resizable-panels": "^3.0.6",
     "recharts": "2.15.4",
