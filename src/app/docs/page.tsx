@@ -2,14 +2,45 @@
 
 import { useEffect, useState } from "react";
 import { MainSidebar } from "@/components/MainSidebar";
+import { authClient } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
 
 type Doc = { id: string; title: string; createdAt: string };
 
 export default function DocsPage() {
+  const router = useRouter();
+  const { data: session, isPending } = authClient.useSession();
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<any[]>([]);
+
+  // Check authentication
+  useEffect(() => {
+    if (isPending) return;
+    
+    if (!session) {
+      router.replace("/auth/login");
+      return;
+    }
+  }, [session, isPending, router]);
+
+  // Show loading while checking authentication
+  if (isPending) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated (will redirect)
+  if (!session) {
+    return null;
+  }
 
   useEffect(() => {
     let active = true;
