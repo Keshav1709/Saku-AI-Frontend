@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useSession, signOut } from "next-auth/react";
+import { authClient } from "@/lib/auth-client";
 import Image from "next/image";
 import { MainSidebar } from "@/components/MainSidebar";
 
@@ -18,7 +18,7 @@ type Integration = {
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { data: session, isPending } = authClient.useSession();
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const [profileData, setProfileData] = useState({
     name: "",
@@ -61,7 +61,7 @@ export default function SettingsPage() {
   });
 
   useEffect(() => {
-    if (status === "loading") return;
+    if (isPending) return;
     
     if (!session) {
       router.replace("/login");
@@ -100,7 +100,7 @@ export default function SettingsPage() {
 
     // Load integrations
     loadIntegrations();
-  }, [session, status, router]);
+  }, [session, isPending, router]);
 
   const loadProfileData = async () => {
     try {
@@ -382,7 +382,7 @@ export default function SettingsPage() {
   };
 
   const handleSignOut = async () => {
-    await signOut({ callbackUrl: '/login' });
+    await authClient.signOut();
   };
 
   const toggleIntegration = async (id: string) => {

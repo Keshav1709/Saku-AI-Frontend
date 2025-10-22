@@ -1,7 +1,7 @@
 # Saku-AI Frontend Documentation
 
 ## Overview
-This documentation provides comprehensive information about the Saku-AI Frontend application, including detailed page documentation, component guides, API integration details, and development guidelines.
+This documentation provides comprehensive information about the Saku-AI Frontend application, including detailed page documentation, component guides, API integration details, and development guidelines. The application now uses **Better Auth** for authentication and **shadcn/ui** for the user interface.
 
 ## Documentation Structure
 
@@ -17,26 +17,34 @@ This documentation provides comprehensive information about the Saku-AI Frontend
 - **[07_API_ROUTES.md](./07_API_ROUTES.md)** - Backend API integration and route documentation
 - **[08_COMPONENTS.md](./08_COMPONENTS.md)** - Reusable component documentation
 - **[09_DEVELOPMENT_GUIDE.md](./09_DEVELOPMENT_GUIDE.md)** - Complete development guide and best practices
+- **[10_LOGIN_SIGNUP.md](./10_LOGIN_SIGNUP.md)** - Authentication system documentation (Better Auth)
+
+### 🚀 Setup Documentation
+- **[../SETUP_GUIDE.md](../SETUP_GUIDE.md)** - Complete setup guide for new developers
 
 ## Quick Start
 
 ### For Developers
-1. **Read the [Development Guide](./09_DEVELOPMENT_GUIDE.md)** for setup and workflow
-2. **Review [Component Documentation](./08_COMPONENTS.md)** for reusable components
-3. **Check [API Routes](./07_API_ROUTES.md)** for backend integration
-4. **Reference specific page docs** for detailed implementation
+1. **Read the [Setup Guide](../SETUP_GUIDE.md)** for complete installation instructions
+2. **Review [Authentication Documentation](./10_LOGIN_SIGNUP.md)** for Better Auth implementation
+3. **Check [Component Documentation](./08_COMPONENTS.md)** for shadcn/ui components
+4. **Reference [API Routes](./07_API_ROUTES.md)** for backend integration
+5. **Study specific page docs** for detailed implementation
 
 ### For New Team Members
-1. **Start with [Development Guide](./09_DEVELOPMENT_GUIDE.md)**
+1. **Start with [Setup Guide](../SETUP_GUIDE.md)**
 2. **Understand the [Project Structure](./09_DEVELOPMENT_GUIDE.md#project-structure)**
-3. **Review [Component Guidelines](./08_COMPONENTS.md)**
-4. **Study [API Integration Patterns](./07_API_ROUTES.md)**
+3. **Review [Authentication System](./10_LOGIN_SIGNUP.md)**
+4. **Study [Component Guidelines](./08_COMPONENTS.md)**
+5. **Learn [API Integration Patterns](./07_API_ROUTES.md)**
 
 ## Key Features
 
 ### ✅ Functional Features
+- **Authentication**: Better Auth with Google OAuth and email/password
 - **Dashboard**: Profile management, task display, schedule view
 - **Chat Interface**: AI-powered chat with streaming responses
+- **Meetings**: Meeting management and scheduling
 - **Document Management**: Upload, view, and manage documents
 - **Settings**: Comprehensive settings with multiple tabs
 - **Integration Management**: Connect to Gmail, Drive, Calendar, Slack, etc.
@@ -57,14 +65,14 @@ This documentation provides comprehensive information about the Saku-AI Frontend
 - **Connector Management**: `/api/connectors/*` - Working
 - **Document Upload**: `/api/docs/upload` - Working
 - **Integration Data**: `/api/integrations` - Working
+- **Authentication**: Better Auth API routes - Working
 
 ### 🔄 Partial Integration
-- **Profile Management**: localStorage only, no backend sync
-- **Settings Persistence**: localStorage only, no backend sync
-- **Session Management**: localStorage only, no backend sync
+- **Profile Management**: Database sync with Better Auth
+- **Settings Persistence**: Database sync with Better Auth
+- **Session Management**: Better Auth session handling
 
 ### ❌ Missing APIs
-- **User Authentication**: No auth API integration
 - **File Processing**: No file processing API
 - **Search API**: No search functionality
 - **Notification API**: No notification system
@@ -74,8 +82,10 @@ This documentation provides comprehensive information about the Saku-AI Frontend
 
 ### 🟢 Complete Pages
 - **Home Page**: Fully functional landing page
+- **Authentication Pages**: Login/signup with Better Auth
 - **Dashboard Page**: Complete with profile integration
-- **Chat Page**: Fully functional with streaming
+- **Chat Page**: Fully functional with streaming and shadcn/ui
+- **Meetings Page**: Complete meeting management with shadcn/ui
 - **Settings Page**: Complete with all tabs
 - **Docs Page**: Basic document listing
 - **Upload Page**: Basic file upload
@@ -87,7 +97,6 @@ This documentation provides comprehensive information about the Saku-AI Frontend
 - **Loading States**: Some loading states missing
 
 ### 🔴 Needs Work
-- **Authentication Flow**: No proper auth implementation
 - **File Processing**: Files not processed after upload
 - **Search Functionality**: No search implementation
 - **Real-time Features**: Limited real-time capabilities
@@ -96,10 +105,17 @@ This documentation provides comprehensive information about the Saku-AI Frontend
 ## Architecture Overview
 
 ### Frontend Stack
-- **Next.js 14**: React framework with app router
+- **Next.js 15**: React framework with app router
 - **React 18**: UI library with hooks
 - **TypeScript**: Type-safe development
 - **Tailwind CSS**: Utility-first styling
+- **shadcn/ui**: Modern component library
+
+### Authentication Stack
+- **Better Auth**: Modern authentication library
+- **Google OAuth 2.0**: Third-party authentication
+- **Prisma**: Database ORM
+- **PostgreSQL**: Database
 
 ### Backend Integration
 - **REST APIs**: HTTP-based communication
@@ -108,6 +124,7 @@ This documentation provides comprehensive information about the Saku-AI Frontend
 
 ### State Management
 - **React Hooks**: useState, useEffect, useContext
+- **Better Auth**: Session management
 - **localStorage**: Persistent local storage
 - **Context API**: Global state management
 
@@ -117,6 +134,7 @@ This documentation provides comprehensive information about the Saku-AI Frontend
 - Node.js 18+
 - npm or yarn
 - Git
+- PostgreSQL
 
 ### Installation
 ```bash
@@ -131,14 +149,30 @@ npm install
 cp .env.example .env.local
 # Edit .env.local with your configuration
 
+# Set up database
+npx prisma generate
+npx prisma db push
+
 # Start development server
 npm run dev
 ```
 
 ### Environment Variables
 ```bash
-NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
-NEXT_PUBLIC_FRONTEND_URL=http://localhost:3000
+# Better Auth
+BETTER_AUTH_SECRET="your-secret-key"
+BETTER_AUTH_URL="http://localhost:3000"
+
+# Google OAuth
+GOOGLE_CLIENT_ID="your-google-client-id"
+GOOGLE_CLIENT_SECRET="your-google-client-secret"
+
+# Database
+DATABASE_URL="postgresql://username:password@localhost:5432/database_name"
+
+# Application URLs
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+NEXT_PUBLIC_BACKEND_URL="http://localhost:8000"
 ```
 
 ## Common Tasks
@@ -146,18 +180,20 @@ NEXT_PUBLIC_FRONTEND_URL=http://localhost:3000
 ### Adding a New Page
 1. Create page file in `/src/app/`
 2. Follow page structure from existing pages
-3. Add navigation link in MainSidebar
-4. Implement required API calls
-5. Add loading and error states
-6. Test responsive design
+3. Add authentication checks with Better Auth
+4. Add navigation link in MainSidebar
+5. Implement required API calls
+6. Add loading and error states
+7. Test responsive design
 
 ### Adding a New Component
 1. Create component file in `/src/components/`
-2. Define TypeScript interface
-3. Implement component logic
-4. Add proper styling
-5. Write unit tests
-6. Document usage
+2. Use shadcn/ui components when possible
+3. Define TypeScript interface
+4. Implement component logic
+5. Add proper styling with Tailwind CSS
+6. Write unit tests
+7. Document usage
 
 ### Integrating with Backend
 1. Create API route in `/src/app/api/`
@@ -167,28 +203,40 @@ NEXT_PUBLIC_FRONTEND_URL=http://localhost:3000
 5. Test integration
 6. Document endpoint
 
+### Authentication Integration
+1. Use `authClient.useSession()` for session management
+2. Implement proper loading states
+3. Add authentication checks
+4. Handle redirects appropriately
+5. Test authentication flows
+
 ## Troubleshooting
 
 ### Common Issues
 - **Build Errors**: Clear `.next` folder and rebuild
 - **TypeScript Errors**: Check type definitions
+- **Authentication Errors**: Check Better Auth configuration
+- **Database Errors**: Verify Prisma setup and database connection
 - **API Errors**: Verify backend is running
-- **Styling Issues**: Check Tailwind classes
+- **Styling Issues**: Check Tailwind classes and shadcn/ui components
 
 ### Debug Tools
 - **React DevTools**: Browser extension
 - **Next.js DevTools**: Built-in debugging
 - **Browser DevTools**: Network, Console, Sources
 - **VS Code**: Debugging configuration
+- **Prisma Studio**: Database management
 
 ## Contributing
 
 ### Code Standards
 - Use TypeScript for all new code
 - Follow ESLint and Prettier rules
+- Use shadcn/ui components when possible
 - Write tests for new features
 - Document all public APIs
 - Use conventional commit messages
+- Follow Better Auth best practices
 
 ### Pull Request Process
 1. Create feature branch
@@ -198,15 +246,34 @@ NEXT_PUBLIC_FRONTEND_URL=http://localhost:3000
 5. Address review feedback
 6. Merge after approval
 
+## Migration Notes
+
+### From NextAuth.js to Better Auth
+- **Better Type Safety**: Improved TypeScript support
+- **Simpler Configuration**: Less boilerplate code
+- **Modern API**: Uses React hooks and modern patterns
+- **Better Performance**: Optimized for modern React applications
+
+### Key Changes
+- Authentication configuration updated
+- Client-side authentication code updated
+- Middleware configuration updated
+- Environment variables updated
+- Documentation updated
+
 ## Support
 
 ### Documentation
+- **Setup Guide**: Complete installation instructions
 - **Page Docs**: Detailed page-by-page documentation
-- **Component Docs**: Reusable component guides
+- **Component Docs**: shadcn/ui component guides
 - **API Docs**: Backend integration details
+- **Auth Docs**: Better Auth implementation guide
 - **Dev Guide**: Complete development guide
 
 ### Getting Help
+- **Setup Issues**: Check [Setup Guide](../SETUP_GUIDE.md)
+- **Authentication Issues**: Review [Authentication Documentation](./10_LOGIN_SIGNUP.md)
 - **Code Issues**: Check existing documentation
 - **API Problems**: Review API route documentation
 - **Component Issues**: Check component documentation
@@ -218,6 +285,8 @@ This project is licensed under the MIT License. See LICENSE file for details.
 
 ---
 
-**Last Updated**: December 2024  
-**Version**: 1.0.0  
+**Last Updated**: January 2025  
+**Version**: 2.0.0  
+**Authentication**: Better Auth  
+**UI Framework**: shadcn/ui + Tailwind CSS  
 **Maintainer**: Development Team

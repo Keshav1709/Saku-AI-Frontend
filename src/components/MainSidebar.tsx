@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
+import { authClient } from "@/lib/auth-client";
 import Image from "next/image";
 
 type Conversation = { id: string; title?: string; createdAt?: string };
@@ -33,7 +33,7 @@ export function MainSidebar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session } = authClient.useSession();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [profileData, setProfileData] = useState<ProfileData>({
     firstName: "Romeo",
