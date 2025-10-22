@@ -3,535 +3,297 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { MainSidebar } from "@/components/MainSidebar";
-import Image from "next/image";
-import { useSession } from "next-auth/react";
+import { authClient } from "@/lib/auth-client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { 
+  MessageCircle, 
+  Home, 
+  Workflow, 
+  Calendar, 
+  BarChart3, 
+  Settings, 
+  Paperclip, 
+  Camera, 
+  Send,
+  Zap,
+  FileText,
+  Image as ImageIcon,
+  Search,
+  Code,
+  TrendingUp
+} from "lucide-react";
 
 export default function ChatPage() {
-  function renderMarkdownToHtml(text: string) {
-    const escapeHtml = (s: string) => s
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/\"/g, "&quot;")
-      .replace(/'/g, "&#39;");
-
-    const lines = text.split("\n");
-    const html: string[] = [];
-    let inList = false;
-
-    for (const raw of lines) {
-      const line = raw.trimEnd();
-      if (/^###\s+/.test(line)) {
-        if (inList) { html.push("</ul>"); inList = false; }
-        html.push(`<h3>${escapeHtml(line.replace(/^###\s+/, ""))}</h3>`);
-        continue;
-      }
-      if (/^##\s+/.test(line)) {
-        if (inList) { html.push("</ul>"); inList = false; }
-        html.push(`<h2>${escapeHtml(line.replace(/^##\s+/, ""))}</h2>`);
-        continue;
-      }
-      if (/^-\s+/.test(line)) {
-        if (!inList) { html.push("<ul>"); inList = true; }
-        const item = line.replace(/^-\s+/, "");
-        const bold = item.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-        html.push(`<li>${escapeHtml(bold).replace(/&lt;strong&gt;|&lt;\/strong&gt;/g, (m)=> m==='&lt;strong&gt;'?'<strong>':'</strong>')}</li>`);
-        continue;
-      }
-      if (line === "") {
-        if (inList) { html.push("</ul>"); inList = false; }
-        html.push("<p></p>");
-        continue;
-      }
-      const bold = line.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-      html.push(`<p>${escapeHtml(bold).replace(/&lt;strong&gt;|&lt;\/strong&gt;/g, (m)=> m==='&lt;strong&gt;'?'<strong>':'</strong>')}</p>`);
-    }
-    if (inList) html.push("</ul>");
-    return html.join("\n");
-  }
   const router = useRouter();
-  const { data: session } = useSession();
-  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string; citations?: any[] }[]>([]);
+  const { data: session, isPending } = authClient.useSession();
+
+  // ALL hooks must be declared at the top level
+  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string; timestamp: Date }[]>([]);
   const [input, setInput] = useState("");
-  const listRef = useRef<HTMLDivElement | null>(null);
-  const [sessionId, setSessionId] = useState<string>(() => "");
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [showWelcome, setShowWelcome] = useState(true);
+  const [selectedAgent, setSelectedAgent] = useState("GPT-4");
+  const [selectedSource, setSelectedSource] = useState("All Sources");
+  const [selectedAccess, setSelectedAccess] = useState("All Access");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [profileData, setProfileData] = useState<{
-    firstName: string;
-    lastName: string;
-    jobTitle: string;
-    role: string;
-    department: string;
-    primaryEmail: string;
-    language: string;
-    preferenceEmail: string;
-  }>({
-    firstName: "Romeo",
-    lastName: "Saha",
-    jobTitle: "",
-    role: "",
-    department: "",
-    primaryEmail: "",
-    language: "",
-    preferenceEmail: ""
-  });
-  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Authentication check
   useEffect(() => {
-    const token = localStorage.getItem("saku_auth");
-    if (!token) router.replace("/login");
-    // ensure a conversation exists
-    (async () => {
-      try {
-        const res = await fetch('/api/conversations', { method: 'POST' });
-        const data = await res.json();
-        if (data?.ok && data?.conversation?.id) {
-          setSessionId(data.conversation.id);
-        } else {
-          setSessionId(crypto.randomUUID());
-        }
-      } catch {
-        setSessionId(crypto.randomUUID());
-      }
-    })();
-  }, [router]);
-
-  // Fetch profile data
-  const fetchProfileData = async () => {
-    if (!session?.user?.email) return;
+    if (isPending) return;
     
-    try {
-      const response = await fetch('/api/user/profile', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (response.ok) {
-        const userData = await response.json();
-        const nameParts = userData.name ? userData.name.split(' ') : ['', ''];
-        const firstName = nameParts[0] || '';
-        const lastName = nameParts.slice(1).join(' ') || '';
-        
-        setProfileData({
-          firstName,
-          lastName,
-          jobTitle: userData.jobTitle || "",
-          role: userData.role || "",
-          department: userData.department || "",
-          primaryEmail: userData.email || session.user.email || "",
-          language: userData.language || "",
-          preferenceEmail: userData.preferenceEmail || ""
-        });
-        
-        if (userData.avatar) {
-          setProfilePhoto(userData.avatar);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching profile data:', error);
+    if (!session) {
+      router.replace("/auth/login");
+      return;
     }
-  };
+  }, [session, isPending, router]);
 
+  // Auto scroll to bottom
   useEffect(() => {
-    if (session?.user?.email) {
-      fetchProfileData();
-    }
-  }, [session]);
-
-  useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  useEffect(() => {
-    // Hide welcome section when there are messages
-    setShowWelcome(messages.length === 0);
-  }, [messages]);
-
-  function logout() {
-    localStorage.removeItem("saku_auth");
-    router.replace("/login");
+  // Show loading while checking authentication
+  if (isPending) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
   }
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    setUploadedFiles(prev => [...prev, ...files]);
-  };
+  // Don't render if not authenticated (will redirect)
+  if (!session) {
+    return null;
+  }
 
-  const removeFile = (index: number) => {
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handleSuggestedAction = (action: string) => {
-    setInput(action);
-  };
-
-  async function onSend() {
+  const handleSendMessage = async () => {
     if (!input.trim()) return;
-    const userMsg = { role: "user" as const, content: input };
-    setMessages((m) => [...m, userMsg, { role: "assistant", content: "", citations: [] }]);
+
+    const userMessage = { 
+      role: "user" as const, 
+      content: input, 
+      timestamp: new Date() 
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
     setInput("");
 
-    // Upload any attached files first and collect doc_ids
-    let docIds: string[] = [];
-    if (uploadedFiles.length > 0) {
-      try {
-        const uploads = uploadedFiles.map(async (file) => {
-          const form = new FormData();
-          form.append("file", file);
-          const res = await fetch("/api/docs/upload", { method: "POST", body: form });
-          if (!res.ok) throw new Error("upload_failed");
-          const json = await res.json();
-          if (json?.ok && json?.doc_id) return json.doc_id as string;
-          throw new Error("invalid_upload_response");
-        });
-        docIds = await Promise.all(uploads);
-        setUploadedFiles([]);
-      } catch (e) {
-        console.error("Attachment upload failed:", e);
-      }
-    }
+    // Simulate AI response
+    setTimeout(() => {
+      const aiMessage = { 
+        role: "assistant" as const, 
+        content: "I understand your request. Let me help you with that.", 
+        timestamp: new Date() 
+      };
+      setMessages(prev => [...prev, aiMessage]);
+    }, 1000);
+  };
 
-    // Stream via SSE from internal API including docIds as filter when present
-    const qp = new URLSearchParams({ prompt: userMsg.content });
-    if (docIds.length > 0) qp.set("docIds", docIds.join(","));
-    if (sessionId) qp.set("convId", sessionId);
-    const evt = new EventSource(`/api/chat/stream?${qp.toString()}`);
-    evt.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        if (data.type === "token") {
-          setMessages((m) => {
-            const next = [...m];
-            const last = next[next.length - 1];
-            next[next.length - 1] = { 
-              role: "assistant", 
-              content: (last?.content || "") + data.value,
-              citations: last?.citations || []
-            };
-            return next;
-          });
-        } else if (data.type === "context") {
-          // Update the last message with citations
-          setMessages((m) => {
-            const next = [...m];
-            const last = next[next.length - 1];
-            if (last && last.role === "assistant") {
-              next[next.length - 1] = { 
-                ...last, 
-                citations: data.citations || [] 
-              };
-            }
-            return next;
-          });
-        } else if (data.type === "done") {
-          evt.close();
-          // persist session index
-          const sessions = JSON.parse(localStorage.getItem("saku_sessions") || "[]");
-          const title = userMsg.content.slice(0, 40) || "Conversation";
-          const exists = sessions.find((s: { id: string }) => s.id === sessionId);
-          if (!exists) {
-            sessions.unshift({ id: sessionId, title, createdAt: new Date().toISOString() });
-            localStorage.setItem("saku_sessions", JSON.stringify(sessions.slice(0, 30)));
-          }
-        }
-      } catch (error) {
-        console.error("Error parsing SSE data:", error);
-      }
-    };
-    evt.onerror = (error) => {
-      console.error("SSE error:", error);
-      evt.close();
-    };
-  }
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  const quickActions = [
+    { icon: FileText, label: "Write Copy", color: "bg-blue-500" },
+    { icon: ImageIcon, label: "Image Generation", color: "bg-purple-500" },
+    { icon: Search, label: "Research", color: "bg-green-500" },
+    { icon: FileText, label: "Generate Article", color: "bg-orange-500" },
+    { icon: TrendingUp, label: "Data Analysis", color: "bg-red-500" },
+    { icon: Code, label: "Generate Code", color: "bg-indigo-500" }
+  ];
 
   return (
-    <div className="h-screen bg-white flex overflow-hidden">
-      <MainSidebar
-        selectedId={sessionId}
-        isCollapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-        onNew={() => {
-          setSessionId(crypto.randomUUID());
-          setMessages([]);
-        }}
-        onSelect={async (id) => {
-          setSessionId(id);
-          try {
-            const resp = await fetch(`/api/conversations/${id}`);
-            const json = await resp.json();
-            const msgs = (json?.conversation?.messages || []).map((m: any) => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content, citations: m.citations || [] }));
-            setMessages(msgs);
-          } catch {}
-        }}
-      />
-      <main className="flex-1 flex flex-col bg-white overflow-hidden">
+    <div className="h-screen bg-gray-50 flex">
+      {/* Sidebar */}
+      <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+        <MainSidebar 
+          isCollapsed={sidebarCollapsed}
+          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+        />
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200">
+        <div className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-black">Chat With AI</h1>
-              <p className="text-sm text-gray-600 mt-1">Break down lengthy texts into concise summaries to grasp.</p>
+              <h1 className="text-2xl font-bold text-gray-900">Chat With AI</h1>
+              <p className="text-gray-600 mt-1">Break down lengthy texts into concise summaries to grasp.</p>
             </div>
-            <div className="flex items-center gap-3">
-              <button type="button" disabled aria-disabled className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center opacity-60 cursor-not-allowed" title="Coming soon">
-                <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
-              <button type="button" disabled aria-disabled className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center opacity-60 cursor-not-allowed" title="Coming soon">
-                <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
-                </svg>
-              </button>
-              <button type="button" disabled aria-disabled className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center opacity-60 cursor-not-allowed" title="Coming soon">
-                <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                </svg>
-              </button>
+            <div className="flex items-center space-x-3">
+              <Button variant="ghost" size="sm">
+                <MessageCircle className="w-4 h-4" />
+              </Button>
+              <Button variant="ghost" size="sm">
+                <Settings className="w-4 h-4" />
+              </Button>
             </div>
           </div>
         </div>
 
-        {/* Main Content Area */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {showWelcome ? (
-            /* Welcome Section */
-            <div className="flex-1 flex flex-col items-center justify-center px-6 py-4 overflow-y-auto">
-              {/* SakuAI Logo */}
-              <div className="w-24 h-24 bg-black rounded-full flex items-center justify-center mb-8">
-                <span className="text-white font-bold text-3xl">S</span>
+        {/* Chat Area */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {messages.length === 0 ? (
+            <div className="max-w-4xl mx-auto text-center">
+              {/* Welcome Section */}
+              <div className="mb-8">
+                <div className="w-24 h-24 bg-black rounded-full flex items-center justify-center mx-auto mb-6">
+                  <span className="text-white text-2xl font-bold">S</span>
+                </div>
+                <h2 className="text-3xl font-bold text-gray-900 mb-2">Welcome Saku AI</h2>
+                <p className="text-gray-600 mb-4">Get Started By Script A Task And Chat Can Do The Rest.</p>
+                <p className="text-gray-500">Not Sure Where To Start?</p>
               </div>
-              
-              {/* Welcome Message */}
-              <h2 className="text-3xl font-bold text-black mb-4">Welcome Saku AI</h2>
-              <p className="text-lg text-gray-600 text-center mb-8 max-w-md">
-                Get Started By Script A Task And Chat Can Do The Rest. Not Sure Where To Start?
-              </p>
 
-              {/* Suggested Actions */}
-              <div className="grid grid-cols-3 gap-4 max-w-2xl w-full">
-                <button
-                  onClick={() => handleSuggestedAction("Write Copy")}
-                  className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center mb-2">
-                    <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
-                  </div>
-                  <span className="text-sm font-medium text-black">Write Copy</span>
-                </button>
-
-                <button
-                  onClick={() => handleSuggestedAction("Image Generation")}
-                  className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center mb-2">
-                    <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <span className="text-sm font-medium text-black">Image Generation</span>
-                </button>
-
-                <button
-                  onClick={() => handleSuggestedAction("Research")}
-                  className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center mb-2">
-                    <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                  </div>
-                  <span className="text-sm font-medium text-black">Research</span>
-                </button>
-
-                <button
-                  onClick={() => handleSuggestedAction("Generate Article")}
-                  className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center mb-2">
-                    <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <span className="text-sm font-medium text-black">Generate Article</span>
-                </button>
-
-                <button
-                  onClick={() => handleSuggestedAction("Data Analytics")}
-                  className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center mb-2">
-                    <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                  </div>
-                  <span className="text-sm font-medium text-black">Data Analytics</span>
-                </button>
-
-                <button
-                  onClick={() => handleSuggestedAction("Generate Code")}
-                  className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center mb-2">
-                    <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                    </svg>
-                  </div>
-                  <span className="text-sm font-medium text-black">&lt;&gt; Generate Code</span>
-                </button>
+              {/* Quick Actions */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+                {quickActions.map((action, index) => (
+                  <Card key={index} className="cursor-pointer hover:shadow-md transition-shadow">
+                    <CardContent className="p-4 text-center">
+                      <div className={`w-12 h-12 ${action.color} rounded-lg flex items-center justify-center mx-auto mb-3`}>
+                        <action.icon className="w-6 h-6 text-white" />
+                      </div>
+                      <p className="text-sm font-medium text-gray-900">{action.label}</p>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             </div>
           ) : (
-            /* Chat Messages */
-            <div ref={listRef} className="flex-1 overflow-y-auto px-6 py-4 space-y-4 min-h-0">
-              {messages.map((m, i) => (
-                <div key={i} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
-                  <div className={`max-w-[75%] rounded-lg px-4 py-3 ${
-                    m.role === "user" 
-                      ? "bg-black text-white" 
-                      : "bg-gray-100 text-black"
-                  }`}>
-                    <div className="text-sm font-medium mb-1 opacity-80">{m.role}</div>
-                    <div className="prose prose-neutral max-w-none" dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(m.content) }} />
-                    {m.citations && m.citations.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-gray-300">
-                        <div className="text-xs font-medium mb-2">Sources:</div>
-                        <div className="space-y-2">
-                          {m.citations.map((citation, idx) => (
-                            <div key={idx} className="text-xs bg-white bg-opacity-20 p-2 rounded">
-                              <div className="font-medium">
-                                {citation.doc_id ? `Document ${citation.doc_id}` : 'Source'}
-                              </div>
-                              <div className="mt-1 opacity-90">
-                                {citation.snippet}
-                              </div>
-                            </div>
-                          ))}
+            <div className="max-w-4xl mx-auto space-y-4">
+              {messages.map((message, index) => (
+                <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-3xl ${message.role === 'user' ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200'} rounded-lg p-4`}>
+                    <div className="flex items-start space-x-3">
+                      <Avatar className="w-8 h-8">
+                        <AvatarImage src={message.role === 'user' ? '/avatars/user.jpg' : '/avatars/ai.jpg'} />
+                        <AvatarFallback>
+                          {message.role === 'user' ? 'U' : 'AI'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <span className="font-medium">
+                            {message.role === 'user' ? 'You' : 'Saku AI'}
+                          </span>
+                          <span className="text-xs opacity-70">
+                            {message.timestamp.toLocaleTimeString()}
+                          </span>
                         </div>
+                        <p className="text-sm">{message.content}</p>
                       </div>
-                    )}
+                    </div>
                   </div>
                 </div>
               ))}
+              <div ref={messagesEndRef} />
             </div>
           )}
+        </div>
 
-          {/* Input Area */}
-          <div className="px-6 py-4 border-t border-gray-200 bg-white">
-            {/* Uploaded Files Display */}
-            {uploadedFiles.length > 0 && (
-              <div className="mb-4 flex flex-wrap gap-2">
-                {uploadedFiles.map((file, index) => (
-                  <div key={index} className="flex items-center gap-2 bg-gray-100 px-3 py-2 rounded-lg">
-                    <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <span className="text-sm text-gray-700 truncate max-w-32">{file.name}</span>
-                    <button
-                      onClick={() => removeFile(index)}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
+        {/* Input Area */}
+        <div className="bg-white border-t border-gray-200 p-6">
+          <div className="max-w-4xl mx-auto">
+            {/* Agent Selection */}
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-medium text-gray-700">Agents:</span>
+                <Select value={selectedAgent} onValueChange={setSelectedAgent}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="GPT-4">
+                      <div className="flex items-center space-x-2">
+                        <Zap className="w-4 h-4" />
+                        <span>GPT-4</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="Claude-4.5">
+                      <div className="flex items-center space-x-2">
+                        <Zap className="w-4 h-4" />
+                        <span>Claude 4.5</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="Gemini-2.5-Pro">
+                      <div className="flex items-center space-x-2">
+                        <Zap className="w-4 h-4" />
+                        <span>Gemini 2.5 Pro</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            )}
-
-            <div className="flex items-center gap-3">
-              {/* AI Model Indicator - Show Profile Picture */}
-              <div className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden">
-                {profilePhoto ? (
-                  <Image
-                    src={profilePhoto}
-                    alt="Profile"
-                    width={32}
-                    height={32}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                    {profileData.firstName ? profileData.firstName.charAt(0).toUpperCase() : 'U'}
-                  </div>
-                )}
+              
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-medium text-gray-700">Sources:</span>
+                <Select value={selectedSource} onValueChange={setSelectedSource}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All Sources">All Sources</SelectItem>
+                    <SelectItem value="Web">Web</SelectItem>
+                    <SelectItem value="Documents">Documents</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
-              {/* Input Field */}
-              <div className="flex-1 relative">
-                <input
-                  className="w-full border border-gray-300 rounded-lg px-4 py-3 pr-20 text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-medium text-gray-700">Access:</span>
+                <Select value={selectedAccess} onValueChange={setSelectedAccess}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All Access">All Access</SelectItem>
+                    <SelectItem value="Limited">Limited</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Input Field */}
+            <div className="flex items-end space-x-3">
+              <div className="flex-1">
+                <Input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Find all unread emails from yesterday and summarize |"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      onSend();
-                    }
-                  }}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Find all unread emails from yesterday and summarize"
+                  className="w-full px-4 py-3 text-base"
                 />
-                
-                {/* Input Icons */}
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                  <button type="button" disabled aria-disabled className="text-gray-300 cursor-not-allowed" title="Coming soon">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </button>
-                  
-                  <label className="text-gray-400 hover:text-gray-600 cursor-pointer">
-                    <input
-                      type="file"
-                      multiple
-                      onChange={handleFileUpload}
-                      className="hidden"
-                      accept=".pdf,.doc,.docx,.txt,.md"
-                    />
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                    </svg>
-                  </label>
-                  
-                  <button
-                    onClick={onSend}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                    </svg>
-                  </button>
-                </div>
               </div>
-
-              {/* Dropdowns */}
-              <div className="flex items-center gap-2">
-                <select className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent">
-                  <option>All Sources</option>
-                  <option>Gmail</option>
-                  <option>Drive</option>
-                  <option>Calendar</option>
-                </select>
-                
-                <select className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent">
-                  <option>All Access</option>
-                  <option>Public</option>
-                  <option>Private</option>
-                </select>
+              <div className="flex items-center space-x-2">
+                <Button variant="ghost" size="sm">
+                  <Paperclip className="w-4 h-4" />
+                </Button>
+                <Button variant="ghost" size="sm">
+                  <Camera className="w-4 h-4" />
+                </Button>
+                <Button 
+                  onClick={handleSendMessage}
+                  disabled={!input.trim()}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Send className="w-4 h-4" />
+                </Button>
               </div>
             </div>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
-
-

@@ -1,6 +1,5 @@
-import {authOptions} from '@/lib/auth';
+import {auth} from '@/lib/auth';
 import {PrismaClient} from '@prisma/client';
-import {getServerSession} from 'next-auth';
 import {NextRequest, NextResponse} from 'next/server';
 
 const globalForPrisma = globalThis as unknown as {
@@ -13,28 +12,30 @@ if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
 
 export async function PUT(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth.api.getSession({
+      headers: request.headers,
+    });
 
     if (!session?.user?.email) {
       return NextResponse.json({error: 'Unauthorized'}, {status: 401});
     }
 
-            const {email, name, avatar} = await request.json();
+    const {email, name, avatar} = await request.json();
 
-            // Verify the user is updating their own profile
-            if (email !== session.user.email) {
-              return NextResponse.json({error: 'Forbidden'}, {status: 403});
-            }
+    // Verify the user is updating their own profile
+    if (email !== session.user.email) {
+      return NextResponse.json({error: 'Forbidden'}, {status: 403});
+    }
 
-            // Update user profile in database
-            const updatedUser = await prisma.user.update({
-              where: {email},
-              data: {
-                name,
-                avatar,
-                updatedAt: new Date(),
-              },
-            });
+    // Update user profile in database
+    const updatedUser = await prisma.user.update({
+      where: {email},
+      data: {
+        name,
+        image: avatar,
+        updatedAt: new Date(),
+      },
+    });
 
     return NextResponse.json({
       success: true,
@@ -42,7 +43,7 @@ export async function PUT(request: NextRequest) {
         id: updatedUser.id,
         email: updatedUser.email,
         name: updatedUser.name,
-        avatar: updatedUser.avatar,
+        avatar: updatedUser.image,
       },
     });
   } catch (error) {
@@ -54,23 +55,25 @@ export async function PUT(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth.api.getSession({
+      headers: request.headers,
+    });
 
     if (!session?.user?.email) {
       return NextResponse.json({error: 'Unauthorized'}, {status: 401});
     }
 
-            const user = await prisma.user.findUnique({
-              where: {email: session.user.email},
-              select: {
-                id: true,
-                email: true,
-                name: true,
-                avatar: true,
-                createdAt: true,
-                updatedAt: true,
-              },
-            });
+    const user = await prisma.user.findUnique({
+      where: {email: session.user.email},
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        image: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
 
     if (!user) {
       return NextResponse.json({error: 'User not found'}, {status: 404});

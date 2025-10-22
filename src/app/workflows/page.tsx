@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { MainSidebar } from "@/components/MainSidebar";
+import { authClient } from "@/lib/auth-client";
 
 type WorkflowStatus = "active" | "draft";
 
@@ -24,11 +25,39 @@ type WorkflowTemplate = {
 
 export default function WorkflowsPage() {
   const router = useRouter();
+  const { data: session, isPending } = authClient.useSession();
   const [activeTab, setActiveTab] = useState<"recent" | "templates">("recent");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newWorkflowName, setNewWorkflowName] = useState("");
   const [newWorkflowDescription, setNewWorkflowDescription] = useState("");
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
+
+  // Check authentication
+  useEffect(() => {
+    if (isPending) return;
+    
+    if (!session) {
+      router.replace("/auth/login");
+      return;
+    }
+  }, [session, isPending, router]);
+
+  // Show loading while checking authentication
+  if (isPending) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated (will redirect)
+  if (!session) {
+    return null;
+  }
   const [templates] = useState<WorkflowTemplate[]>([
     {
       id: "email-summarizer",

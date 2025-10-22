@@ -1,23 +1,23 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { authClient } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function Onboarding() {
   const [step, setStep] = useState(1);
-  const { data: session, status } = useSession();
+  const { data: session, isPending } = authClient.useSession();
   const router = useRouter();
 
   useEffect(() => {
-    if (status === "loading") return;
+    if (isPending) return;
     
     if (!session) {
-      router.replace("/login");
+      router.replace("/auth/login");
       return;
     }
-  }, [session, status, router]);
+  }, [session, isPending, router]);
 
   function onNext() {
     if (step >= 4) {

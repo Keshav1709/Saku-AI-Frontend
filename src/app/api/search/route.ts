@@ -1,10 +1,11 @@
-import {authOptions} from '@/lib/auth';
-import {getServerSession} from 'next-auth';
+import {auth} from '@/lib/auth';
 import {NextRequest, NextResponse} from 'next/server';
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth.api.getSession({
+      headers: request.headers,
+    });
     if (!session?.user?.email) {
       return NextResponse.json({error: 'Unauthorized'}, {status: 401});
     }

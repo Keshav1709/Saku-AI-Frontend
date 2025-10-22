@@ -3,7 +3,8 @@
 import { MainSidebar } from "@/components/MainSidebar";
 import { SearchResults } from "@/components/SearchResults";
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
+import { authClient } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
 
 type ProfileData = {
   firstName: string;
@@ -48,7 +49,10 @@ type Task = {
 };
 
 export default function Dashboard() {
-  const { data: session } = useSession();
+  const { data: session, isPending } = authClient.useSession();
+  const router = useRouter();
+
+  // All state hooks must be declared at the top level
   const [profileData, setProfileData] = useState<ProfileData>({
     firstName: "Romeo",
     lastName: "Saha",
@@ -70,6 +74,7 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchResults, setShowSearchResults] = useState(false);
 
+  // Function definitions must be before useEffect
   const fetchProfileData = async () => {
     if (!session?.user?.email) return;
     
@@ -125,59 +130,15 @@ export default function Dashboard() {
     }
   };
 
-  const createTask = async () => {
-    if (!newTaskTitle.trim()) return;
+  // ALL useEffect hooks must be declared at the top level
+  useEffect(() => {
+    if (isPending) return;
     
-    try {
-      const response = await fetch('/api/integrations/tasks', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title: newTaskTitle,
-          notes: ''
-        }),
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          setTasks(prev => [data.task, ...prev]);
-          setNewTaskTitle("");
-          setShowNewTaskForm(false);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to create task:', error);
+    if (!session) {
+      router.replace("/auth/login");
+      return;
     }
-  };
-
-  const updateTaskStatus = async (taskId: string, status: string) => {
-    try {
-      const response = await fetch('/api/integrations/tasks', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          taskId,
-          status
-        }),
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          setTasks(prev => prev.map(task => 
-            task.id === taskId ? data.task : task
-          ));
-        }
-      }
-    } catch (error) {
-      console.error('Failed to update task:', error);
-    }
-  };
+  }, [session, isPending, router]);
 
   useEffect(() => {
     // Load profile data from localStorage
@@ -231,6 +192,77 @@ export default function Dashboard() {
       window.removeEventListener("profileRefresh", handleProfileRefresh as EventListener);
     };
   }, [session]);
+
+  // Show loading while checking authentication
+  if (isPending) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated (will redirect)
+  if (!session) {
+    return null;
+  }
+
+  const createTask = async () => {
+    if (!newTaskTitle.trim()) return;
+    
+    try {
+      const response = await fetch('/api/integrations/tasks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: newTaskTitle,
+          notes: ''
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setTasks(prev => [data.task, ...prev]);
+          setNewTaskTitle("");
+          setShowNewTaskForm(false);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to create task:', error);
+    }
+  };
+
+  const updateTaskStatus = async (taskId: string, status: string) => {
+    try {
+      const response = await fetch('/api/integrations/tasks', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          taskId,
+          status
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setTasks(prev => prev.map(task => 
+            task.id === taskId ? data.task : task
+          ));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to update task:', error);
+    }
+  };
 
   return (
     <div className="h-screen bg-[#f7f8f9] overflow-hidden">
